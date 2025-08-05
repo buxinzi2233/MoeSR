@@ -1,5 +1,3 @@
-
-import re
 import math
 import traceback
 from pathlib import Path
@@ -11,81 +9,149 @@ import cv2
 
 from onnx_infer import OnnxSRInfer
 
+
 class ModelInfo:
     def __init__(self, name, path, scale, algo):
         self.name = name
-        self.path = path
+        self.path = str(path)
         self.scale = scale
         self.algo = algo
 
 
-# Global Vars
-model_list = []
-sr_instance = None
-port = 10721
-last_progress = None
-last_progress_set_time = None
-# Scan models
-model_root = Path('models')
-for algo in ['real-esrgan', 'real-hatgan']:
-    for folder in [p for p in (model_root / algo).iterdir() if p.is_dir()]:
-        for f in folder.glob('*.onnx'):
-            model_list.append(ModelInfo(str(f.stem), str(f), int(folder.stem.replace('x', '')), algo))
+class ModelManager:
+    def __init__(self, model_root='models'):
+        self.model_root = Path(model_root)
+        self.model_list: list[ModelInfo] = self._scan_models()
 
-eel.init('webui', custom_js_func=['handleSetProgress', 'showError', 'handleSetProcessState'])
-# prepare electron app
-main_js = open('electron_app/main.js')
-main_js_str = main_js.read()
-main_js.close()
-main_js_str_custom_port = re.sub('http://localhost:.*/', f'http://localhost:{port}/', main_js_str)
-main_js = open('electron_app/main.js', 'w', encoding='utf-8')
-main_js.write(main_js_str_custom_port)
-main_js.close()
+    def _scan_models(self):
+        models = []
+        for model_file in self.model_root.rglob('*.onnx'):
+            try:
+                # model_file.parts an tuple like: ('E:', 'MoeSR', 'models', 'real-esrgan', 'x4', 'model.onnx')
+                # The last three parts are what we need.
+                scale_dir_name = model_file.parts[-2]
+                algo_name = model_file.parts[-3]
+                scale = int(scale_dir_name.replace('x', ''))
+                models.append(ModelInfo(model_file.stem, model_file, scale, algo_name))
+            except:
+                print(f"Skip unresolvable model paths: {model_file}")
+                continue
+        return models
+
+    def find_model(self, name, algo) -> ModelInfo:
+        for model in self.model_list:
+            if model.name == name and model.algo == algo:
+                return model
+        return None
+
+    def get_models_by_algo(self, algo_name):
+        return [m.name for m in self.model_list if m.algo == algo_name]
+
+
+class SRManager:
+    def __init__(self, model_manager):
+        self.model_manager = model_manager
+        self._sr_instance = None
+        # Use file path to determine unique values to avoid multiple judgments
+        self._current_model_path = None
+        self._current_gpuid = None
+
+    def get_instance(self, model_name, algo_name, gpuid, progress_setter):
+        model_info: ModelInfo = self.model_manager.find_model(model_name, algo_name)
+        if (self._sr_instance is None or
+            self._current_model_path != model_info.path or
+                self._current_gpuid != gpuid):
+
+            print(f"Creating/Switching an SR Instance. Model: {model_info.path}, GPU ID: {gpuid}")
+            if self._sr_instance:
+                del self._sr_instance
+
+            provider_options = [{'device_id': gpuid}] if gpuid >= 0 else None
+            self._sr_instance = OnnxSRInfer(model_info.path, model_info.scale, model_info.name,
+                                            provider_options=provider_options,
+                                            progress_setter=progress_setter)
+            self._current_model_path = model_info.path
+            self._current_gpuid = gpuid
+
+        return self._sr_instance, model_info
+
+    def reset(self):
+        if self._sr_instance:
+            del self._sr_instance
+        self._sr_instance = None
+        self._current_model_path = None
+        self._current_gpuid = None
+
+
+port = 10721
+model_manager = ModelManager()
+sr_manager = SRManager(model_manager)
+g_progress_state = {}
+
+eel.init('webui/build', custom_js_func=['handleSetProgress', 'showError', 'handleSetProcessState'])
 
 
 @eel.expose
 def py_get_model_list(algo_name):
-    models = [m.name for m in model_list if m.algo == algo_name]
-    return models
+    return model_manager.get_models_by_algo(algo_name)
+
 
 @eel.expose
 def py_get_settings():
-    setting_file = open('settings.json','r',encoding='utf-8')
-    settings = json.load(setting_file)
-    setting_file.close()
-    return settings
+    try:
+        with open('settings.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
 
 @eel.expose
 def py_save_settings(new_settings):
-    setting_file = open('settings.json','w',encoding='utf-8')
-    settings = json.dumps(new_settings,ensure_ascii=False)
-    setting_file.write(settings)
-    setting_file.close()
-    return 0
+    try:
+        with open('settings.json', 'w', encoding='utf-8') as f:
+            json.dump(new_settings, f, ensure_ascii=False, indent=4)
+        return 0
+    except Exception as e:
+        return -1
+
 
 def seconds_to_hms(seconds):
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    seconds = seconds % 60
+    if seconds is None or seconds < 0:
+        return '--:--:--'
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    seconds = int(seconds % 60)
+    return f"{hours:0>2d}:{minutes:0>2d}:{seconds:0>2d}"
 
-    return f"{int(hours):0>2d}:{int(minutes):0>2d}:{int(seconds):0>2d}"
 
-def progress_setter(progress,current_time,total_img_num,processed_img_num):
-    global last_progress,last_progress_set_time
-    progress_percent = round(progress*100)
-    total_progress_percent = round((processed_img_num+progress)/total_img_num*100)
+def progress_setter(progress, current_time, total_img_num, processed_img_num):
+    state = g_progress_state
+
+    progress_percent = round(progress * 100)
+    total_progress_percent = round((processed_img_num + progress) / total_img_num * 100)
+
     etr_str = '--:--:--'
     total_etr_str = '--:--:--'
-    if last_progress_set_time:
-        etr = (current_time-last_progress_set_time) * (1-last_progress)/(progress-last_progress)
-        total_etr = (current_time-last_progress_set_time) * (total_img_num-processed_img_num-last_progress)/(progress-last_progress)
-        etr_str = seconds_to_hms(etr)
-        total_etr_str = seconds_to_hms(total_etr)
+
+    last_progress = state.get('last_progress')
+    last_time = state.get('last_time')
+
+    if last_progress is not None and last_time is not None and progress > last_progress:
+        time_delta = current_time - last_time
+        progress_delta = progress - last_progress
+
+        if progress_delta > 1e-6:
+            etr = time_delta * (1 - progress) / progress_delta
+            total_etr = time_delta * (total_img_num - processed_img_num - progress) / progress_delta
+            etr_str = seconds_to_hms(etr)
+            total_etr_str = seconds_to_hms(total_etr)
+
     progress_str = f'{progress_percent}% ETR:{etr_str}'
     total_progress_str = f'{total_progress_percent}% ETR:{total_etr_str}'
-    eel.handleSetProgress(progress_percent,progress_str,total_progress_str)
-    last_progress = progress
-    last_progress_set_time = current_time
+    eel.handleSetProgress(progress_percent, progress_str, total_progress_str)
+
+    state['last_progress'] = progress
+    state['last_time'] = current_time
 
 
 def show_error(error_text):
@@ -96,98 +162,118 @@ def set_process_state(state):
     eel.handleSetProcessState(state)
 
 
+def get_unique_filename(filepath: Path) -> Path:
+    counter = 1
+    new_filepath = filepath
+
+    while new_filepath.exists():
+        new_filepath = filepath.with_name(f"{filepath.stem}_{counter}{filepath.suffix}")
+        counter += 1
+    return new_filepath
+
+
 @eel.expose
-def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, inputType, inputImage, outputPath, gpuid,algoName):
-    global sr_instance
+def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, inputType, inputImage, outputPath, gpuid, algoName):
+    global g_progress_state
+    g_progress_state = {'last_progress': None, 'last_time': None}
+
     try:
-        # find model info
-        model = ModelInfo('', '', 4, '')
-        provider_options = None
-        if int(gpuid) >= 0:
-            provider_options = [{'device_id': int(gpuid)}]
-        for m in model_list:
-            if m.name == modelName and m.algo == algoName:
-                model = m
-                break
-        # init or change sr instance
-        if not sr_instance:
-            sr_instance = OnnxSRInfer(model.path, model.scale, model.name,
-                                      provider_options=provider_options, progress_setter=progress_setter)
-        elif sr_instance.model_path != model.path:
-            del sr_instance
-            sr_instance = OnnxSRInfer(model.path, model.scale, model.name,
-                                      provider_options=provider_options, progress_setter=progress_setter)
-            print(f'Model Change: {model.path}')
-        # skip alpha sr
-        if isSkipAlpha:
-            sr_instance.alpha_upsampler = 'interpolation'
-        
-        # batch process
-        imgs_in = []
+        sr_instance, model = sr_manager.get_instance(modelName, algoName, int(gpuid), progress_setter)
+        sr_instance.alpha_upsampler = 'interpolation' if isSkipAlpha else 'default'
+
         if inputType == 'Folder':
             input_folder = Path(inputImage)
-            for f in input_folder.glob('*.jpg'):
-                imgs_in.append(f)
-            for f in input_folder.glob('*.png'):
-                imgs_in.append(f)
+            imgs_in = list(input_folder.glob('*.jpg')) + list(input_folder.glob('*.png'))
         else:
-            imgs_in = [inputImage]
+            imgs_in = [Path(inputImage)]
+
+        if not imgs_in:
+            return
+
         sr_instance.total_img_num = len(imgs_in)
         sr_instance.processed_img_num = 0
-        # sr process
-        for img_in in imgs_in:
-            img = cv2.imdecode(np.fromfile(img_in,dtype=np.uint8),cv2.IMREAD_UNCHANGED)
-            h, w, c = img.shape
-            sr_img = sr_instance.universal_process_pipeline(
-                img, tile_size=tileSize)
-            scale = int(scale)
-            target_h = None
-            target_w = None
-            # scale >model scale: re process
-            if scale > model.scale and model.scale != 1:
-                # calc process times
+
+        for img_path in imgs_in:
+            g_progress_state = {'last_progress': None, 'last_time': None}
+
+            img = cv2.imdecode(np.fromfile(img_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+            if img is None:
+                print(f"Unable to load image {img_path}, skipped.")
+                sr_instance.processed_img_num += 1
+                continue
+
+            h, w = img.shape[:2]
+            sr_img = sr_instance.universal_process_pipeline(img, tile_size=tileSize)
+
+            # Target scale > model scale, repeat the process
+            if scale > model.scale and model.scale > 1:
                 scale_log = math.log(scale, model.scale)
                 total_times = math.ceil(scale_log)
-                # calc target size
-                if total_times != int(scale_log):
-                    target_h = h*scale
-                    target_w = w*scale
-
-                for t in range(total_times-1):
+                for _ in range(total_times - 1):
                     sr_img = sr_instance.universal_process_pipeline(sr_img, tile_size=tileSize)
-            elif scale < model.scale:
-                target_h = h*scale
-                target_w = w*scale
-            # size in parameters first
+
+            # resize
+            target_h, target_w = None, None
             if resizeTo:
-                if 'x' in resizeTo:
-                    param_w = int(resizeTo.split('x')[0])
-                    target_w = param_w
-                    target_h = int(h * param_w / w)
+                if 'x' in resizeTo.lower():
+                    parts = resizeTo.lower().split('x')
+                    try:
+                        target_w = int(parts)
+                        target_h = int(h * target_w / w)
+                    except:
+                        print(f"Invalid size parameter: {resizeTo}")
                 elif '/' in resizeTo:
-                    ratio = int(resizeTo.split('/')[0]) / int(resizeTo.split('/')[1])
-                    target_w = int(w * ratio)
-                    target_h = int(h * ratio)
-            if target_w:
-                img_out = cv2.resize(sr_img, (target_w, target_h))
+                    parts = resizeTo.split('/')
+                    try:
+                        num = float(parts)
+                        den = float(parts)
+                        ratio = num / den
+                        target_w = int(w * ratio)
+                        target_h = int(h * ratio)
+                    except:
+                        print(f"Invalid scale parameter: {resizeTo}")
+            elif scale != model.scale:
+                target_w = int(w * scale)
+                target_h = int(h * scale)
+
+            if target_w and target_h:
+                img_out = cv2.resize(sr_img, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)
             else:
                 img_out = sr_img
-            # save
-            img_in_name = Path(img_in).stem
-            img_in_ext = Path(img_in).suffix
-            final_output_path = Path(outputPath) / f'{img_in_name}_MoeSR_{model.name}.png'
+
+            # save image
+            output_folder = Path(outputPath)
+            output_folder.mkdir(parents=True, exist_ok=True)
+            base_name = img_path.stem
+            final_output_path = output_folder / f'{base_name}_MoeSR_{model.name}.png'
+
             if final_output_path.exists():
-                final_output_path = Path(outputPath) / f'{img_in_name}_{img_in_ext}_MoeSR_{model.name}.png'
-            # cv2.imwrite(str(final_output_path), img_out)
-            cv2.imencode('.png',img_out)[1].tofile(final_output_path)
+                final_output_path = get_unique_filename(final_output_path)
+
+            cv2.imencode('.png', img_out)[1].tofile(final_output_path)
             sr_instance.processed_img_num += 1
+
         set_process_state('finish')
+
     except Exception as e:
-        sr_instance = None
+        sr_manager.reset()
         error_message = traceback.format_exc()
+        print(error_message)
         show_error(error_message)
         set_process_state('error')
 
 
-eel.start('index.html', mode='custom', cmdline_args=['electron/electron.exe', 'electron_app/main.js'], port=port)
-# eel.start('index.html', mode='custom', cmdline_args=['E:/python/MoeSR/electron/electron.exe', 'webui/main.js'], port=port)
+if __name__ == '__main__':
+    # Dev
+    eel.start(
+        'index.html',
+        mode='custom',
+        cmdline_args=['webui/node_modules/electron/dist/electron.exe', 'webui/main.js'],
+        port=port
+        )
+    # eel.start(
+    #     'index.html',
+    #     mode='custom',
+    #     cmdline_args=['electron/electron.exe', 'electron_app/main.js'],
+    #     port=port
+    #     )

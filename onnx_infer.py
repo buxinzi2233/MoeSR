@@ -4,10 +4,11 @@ import numpy as np
 import math
 import time
 
+
 class OnnxSRInfer:
 
-    def __init__(self, model_path,scale,name,
-                 alpha_upsampler='sr model',providers=['DmlExecutionProvider'],provider_options=None,
+    def __init__(self, model_path, scale, name,
+                 alpha_upsampler='sr model', providers=['DmlExecutionProvider'], provider_options=None,
                  progress_setter=None):
         """Onnx SR Infer
 
@@ -20,7 +21,7 @@ class OnnxSRInfer:
             provider_options (list, optional): eg. [{'device_id': 0}]
             progress_setter: The function called when completing a block.(Used to communicate progress information)
         """
-        self.sess = ort.InferenceSession(model_path,providers=providers,provider_options=provider_options)
+        self.sess = ort.InferenceSession(model_path, providers=providers, provider_options=provider_options)
         self.name = name
         self.scale = scale
         self.alpha_upsampler = alpha_upsampler
@@ -29,26 +30,27 @@ class OnnxSRInfer:
         self.total_img_num = 1
         self.processed_img_num = 0
 
-    def img_array_norm_expd(self,img):
+    def img_array_norm_expd(self, img):
         img = np.array(img).astype(np.float32) / 255.0
         img = np.transpose(img, (2, 0, 1))
         img = np.expand_dims(img, axis=0)
         return img
-    def img_array_denorm_squeeze(self,img):
+
+    def img_array_denorm_squeeze(self, img):
         output_image = np.squeeze(img)
         output_image = np.transpose(output_image, (1, 2, 0))
         output_image = (output_image * 255.0).clip(0, 255).astype(np.uint8)
         output_image = cv2.cvtColor(output_image, cv2.COLOR_RGB2BGR)
         return output_image
-    
+
     def mod_pad(self, img, mod=16):
         """
         Pad image with reflect padding along the height and width axes, based on the modulus value.
-        
+
         Args:
         img (np.array): The input image.
         mod (int): The modulus value to be used for padding. Default is 16.
-        
+
         Returns:
         padded_img (np.array): The padded image.
         pad_height (int): The added padding height.
@@ -64,9 +66,9 @@ class OnnxSRInfer:
         return pad_img, mod_pad_h, mod_pad_w
 
     def remove_mod_pad(self, img, pad_height, pad_width):
-        h,w,c = img.shape
-        return img[0:h-self.scale*pad_height, 0:w-self.scale*pad_width,:]
-    
+        h, w, c = img.shape
+        return img[0:h-self.scale*pad_height, 0:w-self.scale*pad_width, :]
+
     def infer(self, img):
         """
         infer image
@@ -79,7 +81,7 @@ class OnnxSRInfer:
         output = self.img_array_denorm_squeeze(img_sr)
         return output
 
-    def tile_process(self, img, tile_size,tile_pad=16):
+    def tile_process(self, img, tile_size, tile_pad=16):
         """
         It will first crop input images to tiles, and then process each tile.
         Finally, all the processed tiles are merged into one images.
@@ -93,7 +95,7 @@ class OnnxSRInfer:
         height, width, channle = img.shape
         output_height = height * self.scale
         output_width = width * self.scale
-        output_shape = ( output_height, output_width, channle)
+        output_shape = (output_height, output_width, channle)
 
         # start with black image
         output = np.zeros(output_shape, dtype=np.float32)
@@ -122,7 +124,7 @@ class OnnxSRInfer:
                 input_tile_width = input_end_x - input_start_x
                 input_tile_height = input_end_y - input_start_y
                 tile_idx = y * tiles_x + x + 1
-                input_tile = img[input_start_y_pad:input_end_y_pad, input_start_x_pad:input_end_x_pad,:]
+                input_tile = img[input_start_y_pad:input_end_y_pad, input_start_x_pad:input_end_x_pad, :]
 
                 # upscale tile
                 output_tile = self.infer(input_tile)
@@ -139,39 +141,40 @@ class OnnxSRInfer:
                 output_end_y_tile = output_start_y_tile + input_tile_height * self.scale
 
                 # put tile into output image
-                output[output_start_y:output_end_y,output_start_x:output_end_x,:] \
-                    = output_tile[output_start_y_tile:output_end_y_tile,output_start_x_tile:output_end_x_tile,:]
-                self.progress_setter(tile_idx/tiles_x/tiles_y,time.time(),self.total_img_num,self.processed_img_num)
+                output[output_start_y:output_end_y, output_start_x:output_end_x, :] \
+                    = output_tile[output_start_y_tile:output_end_y_tile, output_start_x_tile:output_end_x_tile, :]
+                self.progress_setter(tile_idx/tiles_x/tiles_y, time.time(), self.total_img_num, self.processed_img_num)
 
         return output
+
     def rgb_process_pipeline(self, image, tile_size):
         # mod pad
-        pad_img,pad_h,pad_w = self.mod_pad(image)
+        pad_img, pad_h, pad_w = self.mod_pad(image)
         # tile process
-        sr_img = self.tile_process(pad_img,tile_size)
+        sr_img = self.tile_process(pad_img, tile_size)
         # remove pad
-        final_img = self.remove_mod_pad(sr_img,pad_h,pad_w)
+        final_img = self.remove_mod_pad(sr_img, pad_h, pad_w)
         return final_img
-    
-    def universal_process_pipeline(self, image,tile_size):
+
+    def universal_process_pipeline(self, image, tile_size):
         img_mode = 'RGB'
-        h,w,c = image.shape
+        h, w, c = image.shape
         # handle RGBA image
         if c == 4:
             img_mode = 'RGBA'
-            alpha = image[:, :,3]
-            image = image[:, :,0:3]
+            alpha = image[:, :, 3]
+            image = image[:, :, 0:3]
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             if self.alpha_upsampler == 'sr model':
                 alpha = cv2.cvtColor(alpha, cv2.COLOR_GRAY2RGB)
         else:
-            image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # process image (without alpha channel)
-        output_img = self.rgb_process_pipeline(image,tile_size)
+        output_img = self.rgb_process_pipeline(image, tile_size)
         # process alpha channel
         if img_mode == 'RGBA':
             if self.alpha_upsampler == 'sr model':
-                alpha_img = self.rgb_process_pipeline(alpha,tile_size)
+                alpha_img = self.rgb_process_pipeline(alpha, tile_size)
                 output_alpha = cv2.cvtColor(alpha_img, cv2.COLOR_BGR2GRAY)
             else:  # use the cv2 resize for alpha channel
                 output_alpha = cv2.resize(alpha, (w * self.scale, h * self.scale), interpolation=cv2.INTER_LINEAR)
