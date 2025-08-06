@@ -43,31 +43,52 @@ class OnnxSRInfer:
         output_image = cv2.cvtColor(output_image, cv2.COLOR_RGB2BGR)
         return output_image
 
-    def mod_pad(self, img, mod=16):
+    def pre_process(self, img, tile_size, tile_pad):
         """
-        Pad image with reflect padding along the height and width axes, based on the modulus value.
-
+        Pre-process the image before enhancement.
+        Pads the image to be divisible by tile_size and adds a border.
         Args:
-        img (np.array): The input image.
-        mod (int): The modulus value to be used for padding. Default is 16.
-
+            img (np.array): The input image (h, w, c).
+            tile_size (int): The tile size.
+            tile_pad (int): The tile padding.
         Returns:
-        padded_img (np.array): The padded image.
-        pad_height (int): The added padding height.
-        pad_width (int): The added padding width.
+            tuple: Padded image (np.array), padding height (int), padding width (int).
         """
-        mod_pad_h, mod_pad_w = 0, 0
         h, w, c = img.shape
-        if (h % mod != 0):
-            mod_pad_h = (mod - h % mod)
-        if (w % mod != 0):
-            mod_pad_w = (mod - w % mod)
-        pad_img = np.pad(img, ((0, mod_pad_h), (0, mod_pad_w), (0, 0)), 'reflect')
-        return pad_img, mod_pad_h, mod_pad_w
+        
+        pad_h = (tile_size - h % tile_size) % tile_size
+        pad_w = (tile_size - w % tile_size) % tile_size
 
-    def remove_mod_pad(self, img, pad_height, pad_width):
+        # Pad to be divisible by tile_size, then add tile_pad for border handling.
+        # np.pad format is ((top, bottom), (left, right), (channel_before, channel_after))
+        img = np.pad(img,
+                     ((tile_pad, pad_h + tile_pad), (tile_pad, pad_w + tile_pad), (0, 0)),
+                     'reflect')
+                     
+        return img, pad_h, pad_w
+
+    def post_process(self, img, pad_h, pad_w, tile_pad):
+        """
+        Post-process the image to remove padding.
+        Args:
+            img (np.array): The input image.
+            pad_h (int): The padding height to remove.
+            pad_w (int): The padding width to remove.
+            tile_pad (int): The tile padding to remove.
+        Returns:
+            np.array: The processed image.
+        """
         h, w, c = img.shape
-        return img[0:h-self.scale*pad_height, 0:w-self.scale*pad_width, :]
+        
+        # Calculate the crop boundaries
+        top = tile_pad * self.scale
+        left = tile_pad * self.scale
+        bottom = h - (pad_h + tile_pad) * self.scale
+        right = w - (pad_w + tile_pad) * self.scale
+        
+        # Crop the image to remove all padding
+        img = img[top:bottom, left:right, :]
+        return img
 
     def infer(self, img):
         """
@@ -81,82 +102,74 @@ class OnnxSRInfer:
         output = self.img_array_denorm_squeeze(img_sr)
         return output
 
-    def tile_process(self, img, tile_size, tile_pad=16):
+    def tile_process(self, img, tile_size, tile_pad=8):
         """
-        It will first crop input images to tiles, and then process each tile.
-        Finally, all the processed tiles are merged into one images.
+        Process the image using tile processing.
+        Crops the image into tiles, processes each tile, and merges them.
         Args:
             img (np.array)(h,w,c): image to be processed.
             tile_size (int): tile size.
             tile_pad (int):tile pad size.
         return: img (np.array)(h,w,c): processed image.
-        Modified from: https://github.com/ata4/esrgan-launcher
         """
-        height, width, channle = img.shape
-        output_height = height * self.scale
-        output_width = width * self.scale
-        output_shape = (output_height, output_width, channle)
+        h, w, c = img.shape
+        output_h = h * self.scale
+        output_w = w * self.scale
+        output_shape = (output_h, output_w, c)
+        
+        # start with a black image
+        output = np.zeros(output_shape, dtype=np.uint8)
 
-        # start with black image
-        output = np.zeros(output_shape, dtype=np.float32)
-        tiles_x = math.ceil(width / tile_size)
-        tiles_y = math.ceil(height / tile_size)
+        # Calculate the number of tiles based on the image size without the tile_pad border.
+        # The input 'img' is already padded by pre_process.
+        tiles_x = math.ceil((w - 2 * tile_pad) / tile_size)
+        tiles_y = math.ceil((h - 2 * tile_pad) / tile_size)
 
         # loop over all tiles
         for y in range(tiles_y):
             for x in range(tiles_x):
-                # extract tile from input image
-                ofs_x = x * tile_size
-                ofs_y = y * tile_size
-                # input tile area on total image
-                input_start_x = ofs_x
-                input_end_x = min(ofs_x + tile_size, width)
-                input_start_y = ofs_y
-                input_end_y = min(ofs_y + tile_size, height)
+                # equivalent to cutting out the Tilesize from the original image.
+                x_start = x * tile_size + tile_pad
+                y_start = y * tile_size + tile_pad
+                x_end = min(x_start + tile_size, w - tile_pad)
+                y_end = min(y_start + tile_size, h - tile_pad)
 
-                # input tile area on total image with padding
-                input_start_x_pad = max(input_start_x - tile_pad, 0)
-                input_end_x_pad = min(input_end_x + tile_pad, width)
-                input_start_y_pad = max(input_start_y - tile_pad, 0)
-                input_end_y_pad = min(input_end_y + tile_pad, height)
+                # Add padding to the tile for inference.
+                x_start_pad = x_start - tile_pad
+                y_start_pad = y_start - tile_pad
+                x_end_pad = x_end + tile_pad
+                y_end_pad = y_end + tile_pad
 
-                # input tile dimensions
-                input_tile_width = input_end_x - input_start_x
-                input_tile_height = input_end_y - input_start_y
+                # Crop the tile with padding.
+                tile = img[y_start_pad:y_end_pad, x_start_pad:x_end_pad, :]
+
+                tile_output = self.infer(tile)
+
+                # Calculate the region to crop from the upscaled tile.
+                crop_y_start = (y_start - y_start_pad) * self.scale
+                crop_x_start = (x_start - x_start_pad) * self.scale
+                crop_y_end = crop_y_start + (y_end - y_start) * self.scale
+                crop_x_end = crop_x_start + (x_end - x_start) * self.scale
+                
+                cropped_tile_output = tile_output[crop_y_start:crop_y_end, crop_x_start:crop_x_end, :]
+
+                # Place the processed tile into the output image.
+                output[y_start * self.scale:y_end * self.scale, x_start * self.scale:x_end * self.scale, :] = cropped_tile_output
+                
+                # Update progress
                 tile_idx = y * tiles_x + x + 1
-                input_tile = img[input_start_y_pad:input_end_y_pad, input_start_x_pad:input_end_x_pad, :]
-
-                # upscale tile
-                output_tile = self.infer(input_tile)
-                # output tile area on total image
-                output_start_x = input_start_x * self.scale
-                output_end_x = input_end_x * self.scale
-                output_start_y = input_start_y * self.scale
-                output_end_y = input_end_y * self.scale
-
-                # output tile area without padding
-                output_start_x_tile = (input_start_x - input_start_x_pad) * self.scale
-                output_end_x_tile = output_start_x_tile + input_tile_width * self.scale
-                output_start_y_tile = (input_start_y - input_start_y_pad) * self.scale
-                output_end_y_tile = output_start_y_tile + input_tile_height * self.scale
-
-                # put tile into output image
-                output[output_start_y:output_end_y, output_start_x:output_end_x, :] \
-                    = output_tile[output_start_y_tile:output_end_y_tile, output_start_x_tile:output_end_x_tile, :]
-                self.progress_setter(tile_idx/tiles_x/tiles_y, time.time(), self.total_img_num, self.processed_img_num)
+                if self.progress_setter:
+                    self.progress_setter(tile_idx / (tiles_x * tiles_y), time.time(), self.total_img_num, self.processed_img_num)
 
         return output
 
-    def rgb_process_pipeline(self, image, tile_size):
-        # mod pad
-        pad_img, pad_h, pad_w = self.mod_pad(image)
-        # tile process
-        sr_img = self.tile_process(pad_img, tile_size)
-        # remove pad
-        final_img = self.remove_mod_pad(sr_img, pad_h, pad_w)
+    def rgb_process_pipeline(self, image, tile_size, tile_pad=8):
+        img, pad_h, pad_w = self.pre_process(image, tile_size, tile_pad)
+        output = self.tile_process(img, tile_size, tile_pad)
+        final_img = self.post_process(output, pad_h, pad_w, tile_pad)
         return final_img
 
-    def universal_process_pipeline(self, image, tile_size):
+    def universal_process_pipeline(self, image, tile_size, tile_pad=8):
         img_mode = 'RGB'
         h, w, c = image.shape
         # handle RGBA image
@@ -170,11 +183,11 @@ class OnnxSRInfer:
         else:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # process image (without alpha channel)
-        output_img = self.rgb_process_pipeline(image, tile_size)
+        output_img = self.rgb_process_pipeline(image, tile_size, tile_pad)
         # process alpha channel
         if img_mode == 'RGBA':
             if self.alpha_upsampler == 'sr model':
-                alpha_img = self.rgb_process_pipeline(alpha, tile_size)
+                alpha_img = self.rgb_process_pipeline(alpha, tile_size, tile_pad)
                 output_alpha = cv2.cvtColor(alpha_img, cv2.COLOR_BGR2GRAY)
             else:  # use the cv2 resize for alpha channel
                 output_alpha = cv2.resize(alpha, (w * self.scale, h * self.scale), interpolation=cv2.INTER_LINEAR)

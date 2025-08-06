@@ -265,12 +265,15 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
 
 if __name__ == '__main__':
     # Dev
+    model_manager = ModelManager(r'E:\python\MoeSR\models')
     eel.start(
         'index.html',
         mode='custom',
         cmdline_args=['webui/node_modules/electron/dist/electron.exe', 'webui/main.js'],
         port=port
         )
+    
+    # Release
     # eel.start(
     #     'index.html',
     #     mode='custom',
