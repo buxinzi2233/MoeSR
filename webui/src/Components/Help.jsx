@@ -16,6 +16,7 @@ function Help({language}) {
                         <tr><td>Real-HATGAN-x2: universal-fix1</td><td>适用于各种风格的2d插画，一般修复强度</td></tr>
                         <tr><td>Real-HATGAN-x2: jp_Illustration-fix1</td><td>适用于日系插画，一般修复强度</td></tr></tbody>
                         <tr><td>Real-HATGAN-x1: jp_Illustration-fixonly</td><td>适用于日系插画，仅修复图片，不进行放大</td></tr>
+                        <tr><td>MoeIR: MoeIRv1</td><td>高效的插画修复模型，对X，Pixiv等压缩图像有很好的修复效果</td></tr>
                 </table></figure>
                 <p>2. 模型参数</p>
                 <figure><table>
@@ -66,6 +67,7 @@ function Help({language}) {
                         <tr><td>Real-HATGAN-x2: universal-fix1</td><td>Suitable for all styles of 2d illustration, general restoration strength</td></tr>
                         <tr><td>Real-HATGAN-x2: jp_Illustration-fix1</td><td>Suitable for Japanese Style illustrations, general restoration of intensity</td></tr></tbody>
                         <tr><td>Real-HATGAN-x1: jp_Illustration-fixonly</td><td>Suitable for Japanese Style illustration, only fix the picture, no enlargement</td></tr>
+                        <tr><td>MoeIR: MoeIRv1</td><td>Efficient illustration restoration model, with good restoration effect on compressed images such as X and Pixiv</td></tr>
                 </table>
                 </figure>
                 <p>2. Model Config</p>

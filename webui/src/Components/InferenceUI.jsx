@@ -36,6 +36,9 @@ async function getModelList(algoName, webDevMode) {
         else if (algoName === "real-hatgan") {
             dummyData = ["hatgan model1", "model2", "model3"]
         }
+        else if (algoName === "moe-ir") {
+            dummyData = ["model1", "model2", "model3"]
+        }
         return dummyData
     }
     else {
@@ -51,6 +54,9 @@ function InferenceUI({ algoName, webDevMode, texts }) {
     }
     else if (algoName === "real-hatgan") {
         algoTitle = <h3><strong>R</strong>eal-<strong>HAT</strong>GAN</h3>
+    }
+    else if (algoName === "moe-ir") {
+        algoTitle = <h3><strong>M</strong>oe-<strong>I</strong>R</h3>
     }
     // process state Alert
     let stateAlert;
@@ -103,6 +109,20 @@ function InferenceUI({ algoName, webDevMode, texts }) {
             }
         }
     }
+    function getIsDisableTileAndScaleSetting(){
+        if (algoName === 'moe-ir'){
+            return true
+        }else{
+            return false
+        }
+    }
+    function getDefaultScale(){
+        if (algoName === 'moe-ir'){
+            return 1
+        }else{
+            return 4
+        }
+    }
     // Options
     const [modelOptions, setModelOptions] = useState([])
     // Infer Config
@@ -126,11 +146,13 @@ function InferenceUI({ algoName, webDevMode, texts }) {
     if (inputType === 'Folder') {
         inputText = texts.inferInputFolder;
     }
+
     // Backend communication
     useEffect(() => {
         // Runs ONCE after initial rendering
         getModelList(algoName, webDevMode).then(result => { setModelOptions(result) })
         console.log('Effect run ' + algoName)
+        setScale(getDefaultScale())
     }, [algoName, webDevMode]);
     if (!webDevMode) {
         window.eel.expose(handleSetProgress, 'handleSetProgress');
@@ -219,7 +241,7 @@ function InferenceUI({ algoName, webDevMode, texts }) {
 
                         }}>
                         <Typography sx={{ margin: '15px 0px', marginRight: '2%' }}>{texts.inferTileSize}</Typography>
-                        <Slider size='small' aria-label="Small" defaultValue={64}
+                        <Slider disabled={getIsDisableTileAndScaleSetting()} size='small' aria-label="Small" defaultValue={64}
                             valueLabelDisplay="auto" step={64} min={64} max={640} color='lightBlue'
                             onChange={(event, newValue) => { setTileSize(newValue) }}
                         />
@@ -232,7 +254,7 @@ function InferenceUI({ algoName, webDevMode, texts }) {
                             justifyContent: 'space-between'
                         }}>
                         <Typography sx={{ margin: '15px 0px', marginRight: '2%' }}>{texts.inferScale}</Typography>
-                        <Slider size='small' aria-label="Small" defaultValue={4}
+                        <Slider disabled={getIsDisableTileAndScaleSetting()} size='small' aria-label="Small" defaultValue={4}
                             valueLabelDisplay="auto" step={1} min={1} max={16} color='lightBlue'
                             // sx={{ flexGrow: 0.5 }} 
                             onChange={(event, newValue) => { setScale(newValue) }}
@@ -342,7 +364,7 @@ function InferenceUI({ algoName, webDevMode, texts }) {
                     </Box>
                     {stateAlert}
                     <div className="Version">
-                        MoeSR Release 1.0.0
+                        MoeSR Release 1.0.1
                     </div>
                 </div>
             </div>

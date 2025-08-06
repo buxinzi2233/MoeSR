@@ -62,9 +62,10 @@ function App() {
     SetLang('English')
   }
   const texts = translations[langMap[lang]]
+  const availableAlgos = ["real-esrgan","real-hatgan","moe-ir"]
   var content;
   // real-esrgan or real-hatgan
-  if ((navigation === 'real-esrgan') || (navigation === 'real-hatgan')) {
+  if (availableAlgos.includes(navigation)) {
     content = <InferenceUI algoName={navigation} webDevMode={webDevMode} texts={texts}></InferenceUI>
   }
   else if (navigation === 'settings') {
