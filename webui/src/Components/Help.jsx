@@ -5,7 +5,6 @@ function Help({language}) {
             <div className="HelpContainer">
                 <strong>帮助（简体中文）</strong>
                 <p>1. 模型比较</p>
-                <p>由于需要时间训练与测试模型，模型发布会晚于软件本体发布，选项中缺少下方模型是正常的。</p>
                 <figure><table>
                     <thead>
                         <tr><th>模型名称</th><th>描述</th></tr></thead>
@@ -14,8 +13,6 @@ function Help({language}) {
                         <tr><td>Real-ESRGAN-x4: jp_Illustration-fix1-d</td><td>适用于日系插画，一般修复强度（去模糊，JPEG还原），保留更多细节</td></tr>
                         <tr><td>Real-ESRGAN-x4: jp_Illustration-fix2</td><td>适用于日系插画，更多修复强度，少量丢失细节</td></tr>
                         <tr><td>Real-HATGAN-x4: jp_Illustration-fix1</td><td>适用于日系插画，一般修复强度</td></tr>
-                        <tr><td>Real-HATGAN-x4: jp_Illustration-fix1-v2</td><td>适用于日系插画，一般修复强度，GAN失真有略微改善</td></tr>
-                        <tr><td>Real-HATGAN-x4: jp_Illustration-fix2</td><td>适用于日系插画，更多的修复，少量丢失细节</td></tr>
                         <tr><td>Real-HATGAN-x2: universal-fix1</td><td>适用于各种风格的2d插画，一般修复强度</td></tr>
                         <tr><td>Real-HATGAN-x2: jp_Illustration-fix1</td><td>适用于日系插画，一般修复强度</td></tr></tbody>
                         <tr><td>Real-HATGAN-x1: jp_Illustration-fixonly</td><td>适用于日系插画，仅修复图片，不进行放大</td></tr>
@@ -57,7 +54,6 @@ function Help({language}) {
             <div className="HelpContainer">
                 <strong>Help (English)</strong>
                 <p>1. Model Compare</p>
-                <p>Due to the time required for training and testing models, the model release may be later than the software release, so it is normal for the model options to be missing below.</p>
                 <figure>
                 <table>
                 <thead>
@@ -67,8 +63,6 @@ function Help({language}) {
                         <tr><td>Real-ESRGAN-x4: jp_Illustration-fix1-d</td><td>Suitable for Japanese Style illustration, general restoration strength (de-blurring, JPEG restoration), more details retained</td></tr>
                         <tr><td>Real-ESRGAN-x4: jp_Illustration-fix2</td><td>Suitable for Japanese Style illustrations, more restoration, small amount of missing details</td></tr>
                         <tr><td>Real-HATGAN-x4: jp_Illustration-fix1</td><td>Suitable for Japanese Style illustrations, general restoration strength</td></tr>
-                        <tr><td>Real-HATGAN-x4: jp_Illustration-fix1-v2</td><td>Suitable for Japanese Style illustrations, general restoration strength, slightly reduced GAN artifact</td></tr>
-                        <tr><td>Real-HATGAN-x4: jp_Illustration-fix2</td><td>Suitable for Japanese Style illustrations, more restoration, small amount of missing details</td></tr>
                         <tr><td>Real-HATGAN-x2: universal-fix1</td><td>Suitable for all styles of 2d illustration, general restoration strength</td></tr>
                         <tr><td>Real-HATGAN-x2: jp_Illustration-fix1</td><td>Suitable for Japanese Style illustrations, general restoration of intensity</td></tr></tbody>
                         <tr><td>Real-HATGAN-x1: jp_Illustration-fixonly</td><td>Suitable for Japanese Style illustration, only fix the picture, no enlargement</td></tr>

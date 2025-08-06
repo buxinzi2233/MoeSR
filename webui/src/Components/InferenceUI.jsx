@@ -9,7 +9,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import { Typography } from '@mui/material';
 import { useState, useEffect } from 'react';
 import Alert from '@mui/material/Alert';
-import LoadingButton from '@mui/lab/LoadingButton';
+
 function ProgressTextDisplay({ singleProgressText, totalProgressText, isBatchProcess }) {
     if (isBatchProcess) {
         return (
@@ -332,13 +332,13 @@ function InferenceUI({ algoName, webDevMode, texts }) {
                             onChange={(event) => { handelBatchProcessChange(event) }} />
                         <Typography sx={{ margin: '15px 0px' }}>GPU:</Typography>
                         <TextField id="standard-number" type="number" variant="standard" sx={{ width: '10%' }} onChange={(event) => { setGPUID(event.target.value) }} value={GPUID} />
-                        <LoadingButton variant="outlined" color='lightPink'
+                        <Button variant="outlined" color='lightPink'
                             sx={{ width: '15%', flexGrow: 1, marginLeft: '2%' }}
                             loading={infering}
                             startIcon={<></>}
                             loadingPosition="start"
                             onClick={() => { handleAlertClose(); setInfering(true); runProcess(modelName, tileSize, scale, isSkipAlpha, resizeTo, inputType, inputImage, outputPath, GPUID) }}
-                        >{texts.inferStartButton}</LoadingButton>
+                        >{texts.inferStartButton}</Button>
                     </Box>
                     {stateAlert}
                     <div className="Version">

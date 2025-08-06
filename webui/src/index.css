@@ -1,7 +1,7 @@
 @font-face {
   font-family: "NotoSerifSC";
   src:
-    url("../public/NotoSerifSC-Regular-subset.woff2") format("woff2"),
+    url("/NotoSerifSC-Regular-subset.woff2") format("woff2"),
 }
 [class^="MuiInputBase-input"]{
   color: #666 !important
