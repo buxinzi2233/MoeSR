@@ -74,7 +74,7 @@ function App() {
     content = <Help language={lang}></Help>
   }
   else if (navigation === 'about') {
-    content = <About></About>
+    content = <About texts={texts}></About>
   }
   console.log(navigation)
   return (

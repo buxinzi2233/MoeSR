@@ -17,6 +17,7 @@ const translations = {
         inferAlertFinish:'Your image has been processed.',
         inferAlertError:'An error occurred while processing your image.',
         inferAlertMissingParam:'Missing required parameters (model or inputs and outputs)',
+        updateNotification:"Updates and notifications are available on Github",
     },
     zh: {
         inferModelConfig:'模型配置',
@@ -36,6 +37,7 @@ const translations = {
         inferAlertFinish:'图片已处理完成',
         inferAlertError:'处理发生了错误',
         inferAlertMissingParam:'缺少必填参数(模型/待处理图片/保存位置)',
+        updateNotification:'更新与通知可从Github获取'
     },
 };
 
