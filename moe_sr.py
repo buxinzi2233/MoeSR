@@ -88,7 +88,7 @@ model_manager = ModelManager()
 sr_manager = SRManager(model_manager)
 g_progress_state = {}
 
-eel.init('webui/build', custom_js_func=['handleSetProgress', 'showError', 'handleSetProcessState'])
+eel.init('webui/dist', custom_js_func=['handleSetProgress', 'showError', 'handleSetProcessState'])
 
 
 @eel.expose
@@ -176,7 +176,10 @@ def get_unique_filename(filepath: Path) -> Path:
 def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, inputType, inputImage, outputPath, gpuid, algoName):
     global g_progress_state
     g_progress_state = {'last_progress': None, 'last_time': None}
-
+    # fix params
+    if algoName == 'moe-ir':
+        tileSize = 256-16
+        scale = 1
     try:
         sr_instance, model = sr_manager.get_instance(modelName, algoName, int(gpuid), progress_setter)
         sr_instance.alpha_upsampler = 'interpolation' if isSkipAlpha else 'default'
@@ -266,10 +269,11 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
 if __name__ == '__main__':
     # Dev
     model_manager = ModelManager(r'E:\python\MoeSR\models')
+    sr_manager = SRManager(model_manager)
     eel.start(
         'index.html',
         mode='custom',
-        cmdline_args=['webui/node_modules/electron/dist/electron.exe', 'webui/main.js'],
+        cmdline_args=['E:/python/MoeSR/electron/electron.exe', 'E:/python/MoeSR/electron_app/main.js'],
         port=port
         )
     

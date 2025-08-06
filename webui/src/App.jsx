@@ -8,7 +8,7 @@ import Help from './Components/Help';
 import About from './Components/About';
 import Settings from './Components/Settings';
 import translations from './Language';
-var webDevMode = true;
+var webDevMode = false;
 const theme = createTheme({
   typography: {
     fontFamily: 'NotoSerifSC, Arial',

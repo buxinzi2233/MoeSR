@@ -116,13 +116,6 @@ function InferenceUI({ algoName, webDevMode, texts }) {
             return false
         }
     }
-    function getDefaultScale(){
-        if (algoName === 'moe-ir'){
-            return 1
-        }else{
-            return 4
-        }
-    }
     // Options
     const [modelOptions, setModelOptions] = useState([])
     // Infer Config
@@ -152,7 +145,6 @@ function InferenceUI({ algoName, webDevMode, texts }) {
         // Runs ONCE after initial rendering
         getModelList(algoName, webDevMode).then(result => { setModelOptions(result) })
         console.log('Effect run ' + algoName)
-        setScale(getDefaultScale())
     }, [algoName, webDevMode]);
     if (!webDevMode) {
         window.eel.expose(handleSetProgress, 'handleSetProgress');
