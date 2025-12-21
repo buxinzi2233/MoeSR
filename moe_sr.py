@@ -221,15 +221,15 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
                 if 'x' in resizeTo.lower():
                     parts = resizeTo.lower().split('x')
                     try:
-                        target_w = int(parts)
+                        target_w = int(parts[0])
                         target_h = int(h * target_w / w)
                     except:
                         print(f"Invalid size parameter: {resizeTo}")
                 elif '/' in resizeTo:
                     parts = resizeTo.split('/')
                     try:
-                        num = float(parts)
-                        den = float(parts)
+                        num = float(parts[0])
+                        den = float(parts[1])
                         ratio = num / den
                         target_w = int(w * ratio)
                         target_h = int(h * ratio)
@@ -240,7 +240,11 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
                 target_h = int(h * scale)
 
             if target_w and target_h:
-                img_out = cv2.resize(sr_img, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)
+                # reduce
+                if w > target_w:
+                    img_out = cv2.resize(sr_img, (target_w, target_h), interpolation=cv2.INTER_AREA)
+                else:
+                    img_out = cv2.resize(sr_img, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)
             else:
                 img_out = sr_img
 
