@@ -57,11 +57,11 @@ async function getGPUList(webDevMode) {
     if (webDevMode) {
         return ['0', 'NVIDIA GeForce RTX 2060']
     } else {
-        return []
+        return await window.eel.py_get_gpu_list()()
     }
 }
 
-function InferenceUI({ algoName, webDevMode, texts }) {
+function InferenceUI({ algoName, webDevMode, texts, alwaysShowAdvanced }) {
 
     // AlgoName : real-esrgan or real-hatgan
     var algoTitle;
@@ -78,6 +78,12 @@ function InferenceUI({ algoName, webDevMode, texts }) {
     let stateAlert;
     const [processState, setProcessState] = useState("idle");
     const [showAdvanced, setShowAdvanced] = useState(false);
+
+    useEffect(() => {
+        if (alwaysShowAdvanced) {
+            setShowAdvanced(true);
+        }
+    }, [alwaysShowAdvanced]);
 
     const toggleAdvanced = () => {
         setShowAdvanced(!showAdvanced);
@@ -173,9 +179,14 @@ function InferenceUI({ algoName, webDevMode, texts }) {
     // Backend communication
     useEffect(() => {
         // Runs ONCE after initial rendering
-        getModelList(algoName, webDevMode).then(result => { setModelOptions(result) })
-        getGPUList(webDevMode).then(result => { setGpuOptions(result) })
-        console.log('Effect run ' + algoName)
+        getModelList(algoName, webDevMode).then(result => { setModelOptions(result) });
+        getGPUList(webDevMode).then(result => {
+            setGpuOptions(result)
+            if (Array.isArray(result) && result.length > 0) {
+                setGPUID(result[0]);
+            }
+        });
+        console.log('Effect run ' + algoName);
     }, [algoName, webDevMode]);
     if (!webDevMode) {
         window.eel.expose(handleSetProgress, 'handleSetProgress');
@@ -306,18 +317,24 @@ function InferenceUI({ algoName, webDevMode, texts }) {
                             backgroundColor: '#fafafa'
                         }}>
                             {/* Scaling Mode */}
-                            <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
-                                <Typography sx={{ color: '#666', marginRight: '15px', whiteSpace: 'nowrap' }}>{texts.inferScalingMode}</Typography>
-                                <RadioGroup
-                                    row
-                                    aria-labelledby="scaling-mode-group-label"
-                                    name="scaling-mode-group"
-                                    value={scalingMode}
-                                    onChange={(e) => setScalingMode(e.target.value)}
-                                >
-                                    <FormControlLabel value="manual" control={<Radio size="small" />} label={<Typography>{texts.inferManualScale}</Typography>} />
-                                    <FormControlLabel value="target" control={<Radio size="small" />} label={<Typography>{texts.inferTargetResolution}</Typography>} />
-                                </RadioGroup>
+                            <Box sx={{ display: 'flex', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '20px' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <Typography sx={{ color: '#666', marginRight: '15px', whiteSpace: 'nowrap' }}>{texts.inferScalingMode}</Typography>
+                                    <RadioGroup
+                                        row
+                                        aria-labelledby="scaling-mode-group-label"
+                                        name="scaling-mode-group"
+                                        value={scalingMode}
+                                        onChange={(e) => setScalingMode(e.target.value)}
+                                    >
+                                        <FormControlLabel value="manual" control={<Radio size="small" />} label={<Typography>{texts.inferManualScale}</Typography>} />
+                                        <FormControlLabel value="target" control={<Radio size="small" />} label={<Typography>{texts.inferTargetResolution}</Typography>} />
+                                    </RadioGroup>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <Typography sx={{ color: '#666' }}>{texts.inferSkipAlpha}</Typography>
+                                    <Checkbox size="small" onChange={(event) => { setIsSkipAlpha(event.target.checked) }} checked={isSkipAlpha} />
+                                </Box>
                             </Box>
 
                             {/* Mode Specific Controls */}
@@ -397,20 +414,11 @@ function InferenceUI({ algoName, webDevMode, texts }) {
                                 </Box>
                             </Box>
 
-                            {/* Checkboxes */}
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                    <Typography sx={{ color: '#666' }}>{texts.inferSkipAlpha}</Typography>
-                                    <Checkbox size="small" onChange={(event) => { setIsSkipAlpha(event.target.checked) }} checked={isSkipAlpha} />
-                                </Box>
-
-                            </Box>
-
                         </Box>
                     </Collapse>
 
                     {/* Progress Bar */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                         <Typography sx={{ margin: '15px 0px' }}>{texts.inferProgress}</Typography>
                         <LinearProgress variant="determinate" color='lightGreen' value={progress} sx={{ flexGrow: 1, top: '2px', height: '2px', margin: '0px 10px' }} />
                         <ProgressTextDisplay
@@ -421,7 +429,7 @@ function InferenceUI({ algoName, webDevMode, texts }) {
                     </Box>
 
                     {/* Start Button */}
-                    <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: '20px', marginBottom: '16px' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: '12px', marginBottom: '8px' }}>
                         <Button variant="outlined" color='lightPink'
                             sx={{ width: '100%', padding: '10px' }}
                             loading={infering}

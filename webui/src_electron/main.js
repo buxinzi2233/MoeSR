@@ -26,7 +26,7 @@ function createWindow() {
         }
     )
     require('@electron/remote/main').enable(mainWindow.webContents)
-    mainWindow.loadURL('http://localhost:5173/');
+    mainWindow.loadURL('http://localhost:10721/');
     mainWindow.on('closed', function () {
         mainWindow = null
     })

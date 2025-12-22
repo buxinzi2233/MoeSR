@@ -198,3 +198,4 @@ test.ipynb
 webui_old/
 test.py
 .vscode/
+gpu_enum.dll

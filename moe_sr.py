@@ -8,6 +8,7 @@ import numpy as np
 import cv2
 
 from onnx_infer import OnnxSRInfer
+from gpu_enum import GPUEnum, select_better_gpu
 
 
 class ModelInfo:
@@ -87,6 +88,14 @@ port = 10721
 model_manager = ModelManager()
 sr_manager = SRManager(model_manager)
 g_progress_state = {}
+try:
+    gpu_enumerator = GPUEnum()
+    gpu_dict = gpu_enumerator.gpu_dict()
+    gpu_list = gpu_enumerator.gpu_list()
+except:
+    print('gpu enmuerate failed.')
+    gpu_dict = None
+    gpu_list = [str(i) for i in range(16)]
 
 eel.init('webui/dist', custom_js_func=['handleSetProgress', 'showError', 'handleSetProcessState'])
 
@@ -94,6 +103,11 @@ eel.init('webui/dist', custom_js_func=['handleSetProgress', 'showError', 'handle
 @eel.expose
 def py_get_model_list(algo_name):
     return model_manager.get_models_by_algo(algo_name)
+
+
+@eel.expose
+def py_get_gpu_list():
+    return select_better_gpu(gpu_list)
 
 
 @eel.expose
@@ -194,6 +208,17 @@ def parse_resolution_str(resolution: str, w, h):
             print(f"Invalid scale parameter: {resolution}")
 
 
+def parse_gpu_str(gpu: str):
+    preset_ids = [str(i) for i in range(16)]
+    if gpu in preset_ids:
+        return int(gpu)
+    elif gpu_dict:
+        gpu_id = gpu_dict[gpu]
+        return gpu_id
+    else:
+        return 0
+
+
 @eel.expose
 def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, inputType, inputImage, outputPath, gpuid, algoName,
                    scalingMode='manual', targetResloution=''):
@@ -205,7 +230,9 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
         tileSize = 256-16
         scale = 1
     try:
-        sr_instance, model = sr_manager.get_instance(modelName, algoName, int(gpuid), progress_setter)
+        # parse ui gpu str
+        real_gpu_id = parse_gpu_str(gpuid)
+        sr_instance, model = sr_manager.get_instance(modelName, algoName, int(real_gpu_id), progress_setter)
         sr_instance.alpha_upsampler = 'interpolation' if isSkipAlpha else 'default'
 
         if inputType == 'Folder':
@@ -235,7 +262,7 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
             # calc target scale
             if scalingMode == 'target':
                 parts = targetResloution.lower().split('x')
-                scale = math.ceil(parts[0] / w)
+                scale = math.ceil(int(parts[0]) / w)
 
             # Target scale > model scale, repeat the process
             if scale > model.scale and model.scale > 1:
@@ -243,6 +270,7 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
                 total_times = math.ceil(scale_log)
                 for _ in range(total_times - 1):
                     sr_img = sr_instance.universal_process_pipeline(sr_img, tile_size=tileSize)
+            sr_h, sr_w = sr_img.shape[:2]
 
             # resize
             target_h, target_w = None, None
@@ -251,10 +279,13 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
                 target_w, target_h = parse_resolution_str(targetResloution, w, h)
             elif scalingMode == 'manual' and resizeTo:
                 target_w, target_h = parse_resolution_str(resizeTo, w, h)
+            # No 'resizeTo' set, but 'ui scale' is not equal to the 'model scale'
+            elif scalingMode == 'manual' and sr_w != w*scale:
+                target_w = int(w * scale)
+                target_h = int(h * scale)
 
             if target_w and target_h:
                 # need to use the final image after super-resolution
-                sr_h, sr_w = sr_img.shape[:2]
                 if sr_w > target_w:
                     # reduce
                     img_out = cv2.resize(sr_img, (target_w, target_h), interpolation=cv2.INTER_AREA)

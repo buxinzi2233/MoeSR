@@ -8,7 +8,7 @@ import Help from './Components/Help';
 import About from './Components/About';
 import Settings from './Components/Settings';
 import translations from './Language';
-var webDevMode = true;
+var webDevMode = false;
 const theme = createTheme({
   typography: {
     fontFamily: 'NotoSerifSC, Arial',
@@ -43,7 +43,7 @@ const theme = createTheme({
 });
 async function getSettings(webDevMode) {
   if (webDevMode) {
-      let dummyData = {'language':'English'}
+      let dummyData = {'language':'English', 'alwaysShowAdvanced': false}
       return dummyData
   }
   else {
@@ -53,9 +53,15 @@ async function getSettings(webDevMode) {
 function App() {
   const [navigation, setNavigation] = useState('real-esrgan');
   const [lang,SetLang] = useState('English');
+  const [alwaysShowAdvanced, setAlwaysShowAdvanced] = useState(false);
   const langMap = {'English':'en','简体中文':'zh'};
   useEffect(() => {
-    getSettings(webDevMode).then(result => { SetLang(result['language']) })
+    getSettings(webDevMode).then(result => {
+      SetLang(result['language']);
+      if (result['alwaysShowAdvanced'] !== undefined) {
+        setAlwaysShowAdvanced(result['alwaysShowAdvanced']);
+      }
+    })
     console.log('Effect run ' + lang)
   }, []);// eslint-disable-line
   if (!(lang in langMap)){
@@ -66,10 +72,10 @@ function App() {
   var content;
   // real-esrgan or real-hatgan
   if (availableAlgos.includes(navigation)) {
-    content = <InferenceUI algoName={navigation} webDevMode={webDevMode} texts={texts}></InferenceUI>
+    content = <InferenceUI algoName={navigation} webDevMode={webDevMode} texts={texts} alwaysShowAdvanced={alwaysShowAdvanced}></InferenceUI>
   }
   else if (navigation === 'settings') {
-    content = <Settings langSetter={SetLang} webDevMode={webDevMode} language={lang}></Settings>
+    content = <Settings langSetter={SetLang} webDevMode={webDevMode} language={lang} alwaysShowAdvanced={alwaysShowAdvanced} setAlwaysShowAdvanced={setAlwaysShowAdvanced} texts={texts}></Settings>
   }
   else if (navigation === 'help') {
     content = <Help language={lang}></Help>

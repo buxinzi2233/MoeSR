@@ -23,6 +23,7 @@ const translations = {
         inferManualScale: 'Manual Scale',
         inferTargetResolution: 'Target Resolution',
         inferTargetSize: 'Target Size:',
+        settingsAlwaysShowAdvanced: 'Always Show Advanced Settings',
     },
     zh: {
         inferModelConfig:'模型配置',
@@ -48,6 +49,7 @@ const translations = {
         inferManualScale: '手动缩放',
         inferTargetResolution: '目标分辨率',
         inferTargetSize: '目标尺寸:',
+        settingsAlwaysShowAdvanced: '常驻显示高级设置',
     },
 };
 
