@@ -1,6 +1,11 @@
 .InferUI {
     text-align: center;
-    color:#666
+    color:#666;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* min-height: 100vh; */
+    justify-content: center;
 }
 .InferUI h3 {
 	font-size: 2.2rem;
@@ -9,8 +14,8 @@
 	position: relative;
 	display: inline-block;
 	padding: 0 55px;
-	margin-bottom: 15px;
-    margin-top: 20px;
+	margin-bottom: 36px;
+    margin-top: 36px;
     /* font-weight: normal; */
 
 }
@@ -39,6 +44,8 @@
 .ConfigureArea {
     display: flex;
     justify-content: center;
+    width: 100%;
+    transition: margin-right 0.3s ease;
 }
 .ConfigureArea h4{
     font-size: 1.2em;
@@ -52,12 +59,9 @@
     white-space: nowrap;
     /* margin-bottom: 15px; */
 }
-.ModelConfig{
-    width: 40%;
-    margin-right: 5%;
-}
-.Processor{
-    width: 40%;
+.MainContent{
+    width: 860px;
+    max-width: 95%;
 }
 .Version{
     margin-right: 3px;

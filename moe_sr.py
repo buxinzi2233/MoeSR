@@ -172,8 +172,32 @@ def get_unique_filename(filepath: Path) -> Path:
     return new_filepath
 
 
+def parse_resolution_str(resolution: str, w, h):
+    if 'x' in resolution.lower():
+        parts = resolution.lower().split('x')
+        try:
+            target_w = int(parts[0])
+            target_h = int(h * target_w / w)
+            return (target_w, target_h)
+        except:
+            print(f"Invalid size parameter: {resolution}")
+    elif '/' in resolution:
+        parts = resolution.split('/')
+        try:
+            num = float(parts[0])
+            den = float(parts[1])
+            ratio = num / den
+            target_w = int(w * ratio)
+            target_h = int(h * ratio)
+            return (target_w, target_h)
+        except:
+            print(f"Invalid scale parameter: {resolution}")
+
+
 @eel.expose
-def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, inputType, inputImage, outputPath, gpuid, algoName):
+def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, inputType, inputImage, outputPath, gpuid, algoName,
+                   scalingMode='manual', targetResloution=''):
+    # scalingMode: manual/target
     global g_progress_state
     g_progress_state = {'last_progress': None, 'last_time': None}
     # fix params
@@ -208,6 +232,11 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
             h, w = img.shape[:2]
             sr_img = sr_instance.universal_process_pipeline(img, tile_size=tileSize)
 
+            # calc target scale
+            if scalingMode == 'target':
+                parts = targetResloution.lower().split('x')
+                scale = math.ceil(parts[0] / w)
+
             # Target scale > model scale, repeat the process
             if scale > model.scale and model.scale > 1:
                 scale_log = math.log(scale, model.scale)
@@ -217,31 +246,17 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
 
             # resize
             target_h, target_w = None, None
-            if resizeTo:
-                if 'x' in resizeTo.lower():
-                    parts = resizeTo.lower().split('x')
-                    try:
-                        target_w = int(parts[0])
-                        target_h = int(h * target_w / w)
-                    except:
-                        print(f"Invalid size parameter: {resizeTo}")
-                elif '/' in resizeTo:
-                    parts = resizeTo.split('/')
-                    try:
-                        num = float(parts[0])
-                        den = float(parts[1])
-                        ratio = num / den
-                        target_w = int(w * ratio)
-                        target_h = int(h * ratio)
-                    except:
-                        print(f"Invalid scale parameter: {resizeTo}")
-            elif scale != model.scale:
-                target_w = int(w * scale)
-                target_h = int(h * scale)
+
+            if scalingMode == 'target':
+                target_w, target_h = parse_resolution_str(targetResloution, w, h)
+            elif scalingMode == 'manual' and resizeTo:
+                target_w, target_h = parse_resolution_str(resizeTo, w, h)
 
             if target_w and target_h:
-                # reduce
-                if w > target_w:
+                # need to use the final image after super-resolution
+                sr_h, sr_w = sr_img.shape[:2]
+                if sr_w > target_w:
+                    # reduce
                     img_out = cv2.resize(sr_img, (target_w, target_h), interpolation=cv2.INTER_AREA)
                 else:
                     img_out = cv2.resize(sr_img, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)
@@ -279,8 +294,8 @@ if __name__ == '__main__':
         mode='custom',
         cmdline_args=['E:/python/MoeSR/electron/electron.exe', 'E:/python/MoeSR/electron_app/main.js'],
         port=port
-        )
-    
+    )
+
     # Release
     # eel.start(
     #     'index.html',

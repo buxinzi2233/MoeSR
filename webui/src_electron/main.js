@@ -11,7 +11,7 @@ function createWindow() {
     // console.log(path.join(__dirname, 'preload.js'))
     mainWindow = new BrowserWindow(
         {
-            width: 1024, height: 576,
+            width: 1280, height: 720,
             title: 'Moe SR',
             icon: path.join(__dirname, 'icon.png'),
             autoHideMenuBar: true,
@@ -26,7 +26,7 @@ function createWindow() {
         }
     )
     require('@electron/remote/main').enable(mainWindow.webContents)
-    mainWindow.loadURL('http://localhost:10721/');
+    mainWindow.loadURL('http://localhost:5173/');
     mainWindow.on('closed', function () {
         mainWindow = null
     })

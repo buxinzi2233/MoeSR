@@ -18,6 +18,11 @@ const translations = {
         inferAlertError:'An error occurred while processing your image.',
         inferAlertMissingParam:'Missing required parameters (model or inputs and outputs)',
         updateNotification:"Updates and notifications are available on Github",
+        inferAdvancedSettings: 'Advanced Settings',
+        inferScalingMode: 'Scaling Mode:',
+        inferManualScale: 'Manual Scale',
+        inferTargetResolution: 'Target Resolution',
+        inferTargetSize: 'Target Size:',
     },
     zh: {
         inferModelConfig:'模型配置',
@@ -37,7 +42,12 @@ const translations = {
         inferAlertFinish:'图片已处理完成',
         inferAlertError:'处理发生了错误',
         inferAlertMissingParam:'缺少必填参数(模型/待处理图片/保存位置)',
-        updateNotification:'更新与通知可从Github获取'
+        updateNotification:'更新与通知可从Github获取',
+        inferAdvancedSettings: '高级设置',
+        inferScalingMode: '缩放模式:',
+        inferManualScale: '手动缩放',
+        inferTargetResolution: '目标分辨率',
+        inferTargetSize: '目标尺寸:',
     },
 };
 

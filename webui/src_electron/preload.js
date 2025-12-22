@@ -1,37 +1,33 @@
 const { dialog } = require('@electron/remote')
+const fs = require('fs')
 
-async function handleFileOpen() {
+async function handleOpenFileOrFolder(mode = 'file') {
+  const properties = mode === 'folder' ? ['openDirectory'] : ['openFile']
+  const filters = mode === 'folder' ? [] : [{ name: 'Images', extensions: ['jpg', 'png'] }]
+
   const { canceled, filePaths } = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: [
-      { name: 'Images', extensions: ['jpg', 'png'] }
-    ]
+    properties,
+    filters
   })
-  if (!canceled) {
-    return filePaths[0]
+
+  if (canceled || filePaths.length === 0) {
+    return null
   }
-  else{
-    return ''
+
+  const selectedPath = filePaths[0]
+  const stat = fs.statSync(selectedPath)
+
+  return {
+    path: selectedPath,
+    type: stat.isDirectory() ? 'directory' : 'file'
   }
 }
 
-async function handleFolderOpen() {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
-    properties: ['openDirectory']
-  })
-  if (!canceled) {
-    return filePaths[0]
-  }
-  else{
-    return ''
-  }
-}
-async function handleErrorOpen(content){
+async function handleErrorOpen(content) {
   dialog.showErrorBox('Error', content)
 }
 
 window.electronAPI = {
-  openFile: () => handleFileOpen(),
-  openFolder: () => handleFolderOpen(),
-  showError:(content) =>handleErrorOpen(content)
+  openFileOrFolder: (mode) => handleOpenFileOrFolder(mode),
+  showError: (content) => handleErrorOpen(content)
 }
