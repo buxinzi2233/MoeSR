@@ -7,7 +7,7 @@ import time
 
 class OnnxSRInfer:
 
-    def __init__(self, model_path, scale, name,
+    def __init__(self, model_path, scale, name, precision='fp32',
                  alpha_upsampler='sr model', providers=['DmlExecutionProvider'], provider_options=None,
                  progress_setter=None):
         """Onnx SR Infer
@@ -16,6 +16,7 @@ class OnnxSRInfer:
             model_path (str): Model path
             scale (int): Model scale
             name (str): Instance name,used to determine whether to continue reusing this instance or destroy it when switching models.
+            precision (str, optional): Model precision. 'fp32' or 'fp16'
             alpha_upsampler (str, optional): Method of SR the Alpha channel. Defaults to 'sr model'.Optionally "sr model" or "interpolation".
             providers (list, optional): Ort providers. Defaults to ['DmlExecutionProvider'].
             provider_options (list, optional): eg. [{'device_id': 0}]
@@ -24,6 +25,7 @@ class OnnxSRInfer:
         self.sess = ort.InferenceSession(model_path, providers=providers, provider_options=provider_options)
         self.name = name
         self.scale = scale
+        self.precision = precision
         self.alpha_upsampler = alpha_upsampler
         self.progress_setter = progress_setter
         self.model_path = model_path
@@ -98,6 +100,8 @@ class OnnxSRInfer:
         return: img (np.array)(h,w,c)
         """
         img = self.img_array_norm_expd(img)
+        if self.precision == 'fp16':
+            img = np.array(img, dtype=np.float16)
         img_sr = self.sess.run(['output'], {'input': img})[0]
         output = self.img_array_denorm_squeeze(img_sr)
         return output

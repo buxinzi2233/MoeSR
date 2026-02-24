@@ -12,11 +12,12 @@ from gpu_enum import GPUEnum, select_better_gpu
 
 
 class ModelInfo:
-    def __init__(self, name, path, scale, algo):
+    def __init__(self, name, path, scale, algo, precision='fp32'):
         self.name = name
         self.path = str(path)
         self.scale = scale
         self.algo = algo
+        self.precision = precision
 
 
 class ModelManager:
@@ -33,7 +34,10 @@ class ModelManager:
                 scale_dir_name = model_file.parts[-2]
                 algo_name = model_file.parts[-3]
                 scale = int(scale_dir_name.replace('x', ''))
-                models.append(ModelInfo(model_file.stem, model_file, scale, algo_name))
+                precision = 'fp32'
+                if 'fp16' in model_file.stem:
+                    precision = 'fp16'
+                models.append(ModelInfo(model_file.stem, model_file, scale, algo_name, precision))
             except:
                 print(f"Skip unresolvable model paths: {model_file}")
                 continue
@@ -68,9 +72,10 @@ class SRManager:
                 del self._sr_instance
 
             provider_options = [{'device_id': gpuid}] if gpuid >= 0 else None
-            self._sr_instance = OnnxSRInfer(model_info.path, model_info.scale, model_info.name,
-                                            provider_options=provider_options,
-                                            progress_setter=progress_setter)
+            self._sr_instance = OnnxSRInfer(
+                model_info.path, model_info.scale, model_info.name, model_info.precision,
+                provider_options=provider_options,
+                progress_setter=progress_setter)
             self._current_model_path = model_info.path
             self._current_gpuid = gpuid
 
