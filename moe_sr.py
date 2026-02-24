@@ -191,6 +191,29 @@ def get_unique_filename(filepath: Path) -> Path:
     return new_filepath
 
 
+def format_output_filename(template: str, filestem: str, scale: int, model_name: str) -> str:
+    """
+    Format output filename based on template with placeholders.
+    Supported placeholders: {filestem}, {scale}, {model_name}
+    Truncates filename to 260 characters if exceeded.
+    """
+    filename = template.replace('{filestem}', filestem)
+    filename = filename.replace('{scale}', str(scale))
+    filename = filename.replace('{model_name}', model_name)
+    
+    # Truncate filename if it exceeds 260 characters (Windows MAX_PATH limit)
+    if len(filename) > 260:
+        # Preserve file extension
+        ext_start = filename.rfind('.')
+        if ext_start > 0:
+            ext = filename[ext_start:]
+            filename = filename[:260 - len(ext)] + ext
+        else:
+            filename = filename[:260]
+    
+    return filename
+
+
 def parse_resolution_str(resolution: str, w, h):
     if 'x' in resolution.lower():
         parts = resolution.lower().split('x')
@@ -230,6 +253,11 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
     # scalingMode: manual/target
     global g_progress_state
     g_progress_state = {'last_progress': None, 'last_time': None}
+    
+    # Load custom filename format from settings
+    settings = py_get_settings()
+    custom_filename_format = settings.get('customFilenameFormat', '{filestem}_MoeSR_x{scale}_{model_name}.png')
+    
     # fix params
     if algoName == 'moe-ir':
         tileSize = 256-16
@@ -303,7 +331,15 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
             output_folder = Path(outputPath)
             output_folder.mkdir(parents=True, exist_ok=True)
             base_name = img_path.stem
-            final_output_path = output_folder / f'{base_name}_MoeSR_{model.name}.png'
+            
+            # Use custom filename format
+            output_filename = format_output_filename(
+                custom_filename_format,
+                filestem=base_name,
+                scale=scale,
+                model_name=model.name
+            )
+            final_output_path = output_folder / output_filename
 
             if final_output_path.exists():
                 final_output_path = get_unique_filename(final_output_path)

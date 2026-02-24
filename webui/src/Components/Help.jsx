@@ -26,7 +26,14 @@ function Help({ language }) {
                     <tr><td>MoeIR: MoeIRv1</td><td>高效的插画修复模型，对X，Pixiv等压缩图像有很好的修复效果</td></tr>
                 </table></figure>
 
-                <p>3. 高级设置</p>
+                <p>3. 软件设置</p>
+                <ul>
+                    <li>语言：切换软件界面语言</li>
+                    <li>自定义文件名格式：支持占位符 {'{filestem}'}（不含后缀的原文件名）、{'{scale}'}（放大倍率）、{'{model_name}'}（模型名称）。注意：超过260字符的文件名会被自动截断</li>
+                    <li>常驻显示高级设置：开启后高级设置面板始终展开</li>
+                </ul>
+
+                <p>4. 高级设置</p>
                 <figure><table>
                     <thead>
                         <tr><th>参数名</th><th>描述</th></tr></thead>
@@ -38,7 +45,7 @@ function Help({ language }) {
                         <tr><td>GPU</td><td>1.0.2版本后，软件支持按GPU名称选择，当无法读取GPU名称时，依旧选择ID</td></tr>
                     </tbody>
                 </table></figure>
-                <p>4. 常见问题</p>
+                <p>5. 常见问题</p>
                 <ul>
                     <li>Error:onnxruntimeException： 可能是显存爆了，尝试调低Tile size</li>
                     <li>GPU不工作/它在集显上跑： 尝试切换GPU</li>
@@ -73,7 +80,13 @@ function Help({ language }) {
                         <tr><td>MoeIR: MoeIRv1</td><td>Efficient illustration restoration model, with good restoration effect on compressed images such as X and Pixiv</td></tr>
                     </table>
                 </figure>
-                <p>3. Advanced Settings</p>
+                <p>3. Settings</p>
+                <ul>
+                    <li>Language: Switch the interface language</li>
+                    <li>Custom Filename Format: Supports placeholders {'{filestem}'} (original filename (not include suffix)), {'{scale}'} (scale factor), {'{model_name}'} (model name). Note: Filenames exceeding 260 characters will be automatically truncated</li>
+                    <li>Always Show Advanced Settings: When enabled, the advanced settings panel remains expanded</li>
+                </ul>
+                <p>4. Advanced Settings</p>
                 <figure>
                     <table>
                         <thead>
@@ -120,7 +133,7 @@ function Help({ language }) {
                     </table>
                 </figure>
 
-                <p>4. FAQ</p>
+                <p>5. FAQ</p>
                 <ul>
                     <li>Error: onnxruntimeException: This is likely caused by insufficient GPU memory. Try reducing the tile size.</li>
                     <li>GPU not working / running on integrated graphics: Try switching to a different GPU.</li>
