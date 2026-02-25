@@ -16,6 +16,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
+import { SingleProgressBar } from './ProgressBar';
 
 const NODE_TYPES = {
     inference: 'inference',
@@ -406,6 +407,11 @@ function WorkflowUI({ webDevMode, texts }) {
     const [currentWorkflowName, setCurrentWorkflowName] = useState('');
     const [isNewWorkflow, setIsNewWorkflow] = useState(true);
 
+    // Progress state
+    const [progress, setProgress] = useState(0);
+    const [progressText, setProgressText] = useState('0% ETR:--:--:--');
+    const [totalProgressText, setTotalProgressText] = useState('');
+
     useEffect(() => {
         if (webDevMode) {
             setModels([
@@ -574,6 +580,14 @@ function WorkflowUI({ webDevMode, texts }) {
                 }
             };
             window.eel.expose(handleProcessState, 'handleSetProcessState');
+            
+            // Register progress callback (same as InferenceUI)
+            const handleSetProgress = (progressNum, singleProgressText, totalProgressText) => {
+                setProgress(progressNum);
+                setProgressText(singleProgressText);
+                setTotalProgressText(totalProgressText);
+            };
+            window.eel.expose(handleSetProgress, 'handleSetProgress');
         }
     }, [webDevMode]);
 
@@ -721,6 +735,16 @@ function WorkflowUI({ webDevMode, texts }) {
                         )}
                     </div>
                 </div>
+
+                {running && (
+                    <SingleProgressBar
+                        progress={progress}
+                        progressText={progressText}
+                        totalText={totalProgressText}
+                        isBatch={inputConfig.inputType === 'Folder'}
+                        texts={texts}
+                    />
+                )}
 
                 <div className="RunButtonContainer">
                     <Button variant="outlined" color='lightPink'

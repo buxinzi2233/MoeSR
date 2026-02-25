@@ -2,6 +2,7 @@ import math
 import traceback
 from pathlib import Path
 import json
+import time
 
 import eel
 import numpy as np
@@ -103,6 +104,9 @@ except:
     gpu_list = [str(i) for i in range(16)]
 
 eel.init('webui/dist', custom_js_func=['handleSetProgress', 'showError', 'handleSetProcessState'])
+
+# Sliding window size for ETR calculation
+SLIDING_WINDOW_SIZE = 5
 
 
 @eel.expose
@@ -208,25 +212,39 @@ def progress_setter(progress, current_time, total_img_num, processed_img_num):
     etr_str = '--:--:--'
     total_etr_str = '--:--:--'
 
-    last_progress = state.get('last_progress')
-    last_time = state.get('last_time')
-
-    if last_progress is not None and last_time is not None and progress > last_progress:
-        time_delta = current_time - last_time
-        progress_delta = progress - last_progress
-
-        if progress_delta > 1e-6:
-            etr = time_delta * (1 - progress) / progress_delta
-            total_etr = time_delta * (total_img_num - processed_img_num - progress) / progress_delta
+    # Initialize history list for sliding window
+    if 'history' not in state:
+        state['history'] = []
+    
+    history = state['history']
+    history.append({'progress': progress, 'time': current_time})
+    
+    # Keep window size
+    if len(history) > SLIDING_WINDOW_SIZE:
+        history.pop(0)
+    
+    # Calculate average speed using sliding window
+    if len(history) >= 2:
+        oldest = history[0]
+        newest = history[-1]
+        
+        time_delta = newest['time'] - oldest['time']
+        progress_delta = newest['progress'] - oldest['progress']
+        
+        if progress_delta > 1e-6 and time_delta > 0:
+            speed = progress_delta / time_delta  # progress per second
+            remaining_progress = 1 - progress
+            etr = remaining_progress / speed
+            
+            total_remaining = total_img_num - processed_img_num - progress
+            total_etr = total_remaining / speed
+            
             etr_str = seconds_to_hms(etr)
             total_etr_str = seconds_to_hms(total_etr)
 
     progress_str = f'{progress_percent}% ETR:{etr_str}'
     total_progress_str = f'{total_progress_percent}% ETR:{total_etr_str}'
     eel.handleSetProgress(progress_percent, progress_str, total_progress_str)
-
-    state['last_progress'] = progress
-    state['last_time'] = current_time
 
 
 def show_error(error_text):
@@ -235,6 +253,68 @@ def show_error(error_text):
 
 def set_process_state(state):
     eel.handleSetProcessState(state)
+
+
+def workflow_progress_setter(step_progress, current_time, node_index, node_type,
+                             processed_img_num, total_img_num):
+    """Workflow progress callback - uses same format as normal progress_setter
+    
+    Args:
+        step_progress: Current inference node tile progress (0-1), -1 for non-inference nodes
+        current_time: Current timestamp
+        node_index: Current node index (1-based)
+        node_type: Current node type (inference/scale/label/jump/conditional_jump)
+        processed_img_num: Number of processed images
+        total_img_num: Total number of images
+    """
+    state = g_progress_state
+    
+    etr_str = '--:--:--'
+    step_percent = 0
+    
+    # Calculate ETR using sliding window (only for inference nodes)
+    if step_progress >= 0:
+        step_percent = round(step_progress * 100)
+        
+        if 'history' not in state:
+            state['history'] = []
+        
+        history = state['history']
+        history.append({'progress': step_progress, 'time': current_time})
+        
+        if len(history) > SLIDING_WINDOW_SIZE:
+            history.pop(0)
+        
+        if len(history) >= 2:
+            oldest = history[0]
+            newest = history[-1]
+            
+            time_delta = newest['time'] - oldest['time']
+            progress_delta = newest['progress'] - oldest['progress']
+            
+            if progress_delta > 1e-6 and time_delta > 0:
+                speed = progress_delta / time_delta
+                remaining_progress = 1 - step_progress
+                etr = remaining_progress / speed
+                etr_str = seconds_to_hms(etr)
+    
+    # Format node type display
+    node_type_display = node_type.capitalize()
+    if node_type == 'conditional_jump':
+        node_type_display = 'Conditional'
+    
+    # Format progress text: "Node 5: Inference - 45% ETR:00:01:23" or "Node 3: Scale"
+    if node_type == 'inference' and step_progress >= 0:
+        progress_str = f"Node {node_index}: {node_type_display} - {step_percent}% ETR:{etr_str}"
+    else:
+        progress_str = f"Node {node_index}: {node_type_display}"
+    
+    # Total progress for batch processing
+    total_progress_percent = round(processed_img_num / total_img_num * 100) if total_img_num > 0 else 0
+    total_progress_str = f"{processed_img_num}/{total_img_num} ({total_progress_percent}%)"
+    
+    # Use same callback as normal inference
+    eel.handleSetProgress(step_percent, progress_str, total_progress_str)
 
 
 def get_unique_filename(filepath: Path) -> Path:
@@ -483,7 +563,15 @@ def py_run_workflow(workflow_data):
                 node_type = node.get('type', '')
                 config = node.get('config', {})
                 
+                # Send progress update for non-inference nodes
+                if node_type != 'inference':
+                    workflow_progress_setter(-1, time.time(), current_index + 1, node_type,
+                                            processed_img_num, total_img_num)
+                
                 if node_type == 'inference':
+                    # Reset history for new inference node
+                    g_progress_state = {'history': []}
+                    
                     # Run inference
                     algo_name = config.get('algoName', '')
                     model_name = config.get('modelName', '')
@@ -496,10 +584,20 @@ def py_run_workflow(workflow_data):
                     
                     real_gpu_id = parse_gpu_str(gpu_id)
                     
-                    def workflow_progress_setter(progress, current_time, total, processed):
-                        progress_setter(progress, current_time, total_img_num, processed_img_num)
+                    # Capture current node index for closure
+                    _node_index = current_index + 1
+                    _total_img_num = total_img_num
+                    _processed_img_num = processed_img_num
                     
-                    sr_instance, model = sr_manager.get_instance(model_name, algo_name, int(real_gpu_id), workflow_progress_setter)
+                    def make_workflow_progress_callback(node_idx, total_imgs, processed_imgs):
+                        def callback(progress, current_time, total, processed):
+                            workflow_progress_setter(progress, current_time, node_idx, 'inference',
+                                                    processed_imgs, total_imgs)
+                        return callback
+                    
+                    progress_callback = make_workflow_progress_callback(_node_index, _total_img_num, _processed_img_num)
+                    
+                    sr_instance, model = sr_manager.get_instance(model_name, algo_name, int(real_gpu_id), progress_callback)
                     sr_instance.alpha_upsampler = 'interpolation' if skip_alpha else 'default'
                     sr_instance.total_img_num = 1
                     sr_instance.processed_img_num = 0

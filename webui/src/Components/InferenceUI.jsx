@@ -5,7 +5,6 @@ import Slider from '@mui/material/Slider';
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
 import Button from '@mui/material/Button';
-import LinearProgress from '@mui/material/LinearProgress';
 import { Typography } from '@mui/material';
 import { useState, useEffect } from 'react';
 import Alert from '@mui/material/Alert';
@@ -16,22 +15,7 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-
-function ProgressTextDisplay({ singleProgressText, totalProgressText, isBatchProcess }) {
-    if (isBatchProcess) {
-        return (
-            <Box>
-                <Typography sx={{ margin: '0px 0px', fontSize: '0.8em' }}>{singleProgressText}</Typography>
-                <Typography sx={{ margin: '0px 0px', fontSize: '0.8em' }}>{totalProgressText}</Typography>
-            </Box>
-        )
-    }
-    else {
-        return (
-            <Typography sx={{ margin: '0px 0px', fontSize: '0.96em' }}>{singleProgressText}</Typography>
-        )
-    }
-}
+import { SingleProgressBar } from './ProgressBar';
 
 async function getModelList(algoName, webDevMode) {
     if (webDevMode) {
@@ -418,15 +402,13 @@ function InferenceUI({ algoName, webDevMode, texts, alwaysShowAdvanced }) {
                     </Collapse>
 
                     {/* Progress Bar */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <Typography sx={{ margin: '15px 0px' }}>{texts.inferProgress}</Typography>
-                        <LinearProgress variant="determinate" color='lightGreen' value={progress} sx={{ flexGrow: 1, top: '2px', height: '2px', margin: '0px 10px' }} />
-                        <ProgressTextDisplay
-                            singleProgressText={singleProgressText}
-                            totalProgressText={totalProgressText}
-                            isBatchProcess={isBatchProcess}
-                        ></ProgressTextDisplay>
-                    </Box>
+                    <SingleProgressBar
+                        progress={progress}
+                        progressText={singleProgressText}
+                        totalText={totalProgressText}
+                        isBatch={isBatchProcess}
+                        texts={texts}
+                    />
 
                     {/* Start Button */}
                     <Box sx={{ display: 'flex', justifyContent: 'center', marginTop: '12px', marginBottom: '8px' }}>
