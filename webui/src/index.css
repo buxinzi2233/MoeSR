@@ -21,3 +21,11 @@ body {
   font-size: 0.96em;
   user-select: none;
 }
+.Version{
+    color: #666;
+    margin-right: 4px;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    font-size: 0.8em;
+}

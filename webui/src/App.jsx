@@ -1,6 +1,7 @@
 import './App.css';
 import Navbar from './Components/Navbar';
 import InferenceUI from './Components/InferenceUI';
+import WorkflowUI from './Components/WorkflowUI';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import BackGround from './Components/Background';
 import { useState, useEffect } from 'react';
@@ -77,6 +78,9 @@ function App() {
   else if (navigation === 'settings') {
     content = <Settings langSetter={SetLang} webDevMode={webDevMode} language={lang} alwaysShowAdvanced={alwaysShowAdvanced} setAlwaysShowAdvanced={setAlwaysShowAdvanced} texts={texts}></Settings>
   }
+  else if (navigation === 'workflow') {
+    content = <WorkflowUI webDevMode={webDevMode} texts={texts}></WorkflowUI>
+  }
   else if (navigation === 'help') {
     content = <Help language={lang}></Help>
   }
@@ -90,7 +94,11 @@ function App() {
         <BackGround></BackGround>
         <Navbar setNavigation={setNavigation}></Navbar>
         {content}
+        <div className="Version">
+            MoeSR Release 1.1.0
+        </div>
       </ThemeProvider>
+      
     </div>
 
   );

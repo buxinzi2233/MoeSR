@@ -444,9 +444,6 @@ function InferenceUI({ algoName, webDevMode, texts, alwaysShowAdvanced }) {
                     </Box>
 
                     {stateAlert}
-                    <div className="Version">
-                        MoeSR Release 1.0.2
-                    </div>
                 </div>
             </div>
         </div>

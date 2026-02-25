@@ -111,6 +111,20 @@ def py_get_model_list(algo_name):
 
 
 @eel.expose
+def py_get_all_models():
+    """Get all models with algorithm info for workflow"""
+    result = []
+    for model in model_manager.model_list:
+        result.append({
+            'name': model.name,
+            'algo': model.algo,
+            'scale': model.scale,
+            'displayName': f"{model.algo}: {model.name}"
+        })
+    return result
+
+
+@eel.expose
 def py_get_gpu_list():
     return select_better_gpu(gpu_list)
 
@@ -349,6 +363,191 @@ def py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo: str, input
 
         set_process_state('finish')
 
+    except Exception as e:
+        sr_manager.reset()
+        error_message = traceback.format_exc()
+        print(error_message)
+        show_error(error_message)
+        set_process_state('error')
+
+
+@eel.expose
+def py_run_workflow(workflow_data):
+    """Execute workflow pipeline"""
+    global g_progress_state
+    g_progress_state = {'last_progress': None, 'last_time': None}
+    
+    try:
+        # Load custom filename format from settings
+        settings = py_get_settings()
+        custom_filename_format = settings.get('customFilenameFormat', '{filestem}_MoeSR_x{scale}_{model_name}.png')
+        
+        # Parse input
+        input_config = workflow_data.get('input', {})
+        output_config = workflow_data.get('output', {})
+        nodes = workflow_data.get('nodes', [])
+        
+        input_path = input_config.get('path', '')
+        input_type = input_config.get('inputType', 'Image')
+        output_path = output_config.get('path', '')
+        
+        if not input_path or not output_path:
+            set_process_state('error')
+            return
+        
+        # Load images
+        if input_type == 'Folder':
+            input_folder = Path(input_path)
+            imgs_in = list(input_folder.glob('*.jpg')) + list(input_folder.glob('*.png'))
+        else:
+            imgs_in = [Path(input_path)]
+        
+        if not imgs_in:
+            set_process_state('finish')
+            return
+        
+        total_img_num = len(imgs_in)
+        processed_img_num = 0
+        
+        # Build label index map
+        label_index_map = {}
+        for i, node in enumerate(nodes):
+            if node.get('type') == 'label':
+                label_name = node.get('config', {}).get('name', '')
+                if label_name:
+                    label_index_map[label_name] = i
+        
+        # Process each image
+        for img_path in imgs_in:
+            g_progress_state = {'last_progress': None, 'last_time': None}
+            
+            img = cv2.imdecode(np.fromfile(img_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+            if img is None:
+                print(f"Unable to load image {img_path}, skipped.")
+                processed_img_num += 1
+                continue
+            
+            current_scale = 1
+            last_model_name = 'unknown'
+            
+            # Execute workflow nodes
+            current_index = 0
+            max_steps = 1000  # Prevent infinite loops
+            step_count = 0
+            
+            while current_index < len(nodes) and step_count < max_steps:
+                step_count += 1
+                node = nodes[current_index]
+                node_type = node.get('type', '')
+                config = node.get('config', {})
+                
+                if node_type == 'inference':
+                    # Run inference
+                    algo_name = config.get('algoName', '')
+                    model_name = config.get('modelName', '')
+                    tile_size = config.get('tileSize', 64)
+                    gpu_id = config.get('gpuId', '0')
+                    skip_alpha = config.get('skipAlpha', False)
+                    
+                    if algo_name == 'moe-ir':
+                        tile_size = 256 - 16
+                    
+                    real_gpu_id = parse_gpu_str(gpu_id)
+                    
+                    def workflow_progress_setter(progress, current_time, total, processed):
+                        progress_setter(progress, current_time, total_img_num, processed_img_num)
+                    
+                    sr_instance, model = sr_manager.get_instance(model_name, algo_name, int(real_gpu_id), workflow_progress_setter)
+                    sr_instance.alpha_upsampler = 'interpolation' if skip_alpha else 'default'
+                    sr_instance.total_img_num = 1
+                    sr_instance.processed_img_num = 0
+                    
+                    img = sr_instance.universal_process_pipeline(img, tile_size=tile_size)
+                    current_scale *= model.scale
+                    last_model_name = model.name
+                    current_index += 1
+                    
+                elif node_type == 'scale':
+                    # Run scale
+                    value = config.get('value', '')
+                    if value:
+                        h, w = img.shape[:2]
+                        result = parse_resolution_str(value, w, h)
+                        if result:
+                            target_w, target_h = result
+                            if w > target_w:
+                                img = cv2.resize(img, (target_w, target_h), interpolation=cv2.INTER_AREA)
+                            else:
+                                img = cv2.resize(img, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)
+                    current_index += 1
+                    
+                elif node_type == 'label':
+                    # Label node, just continue
+                    current_index += 1
+                    
+                elif node_type == 'jump':
+                    # Unconditional jump
+                    jump_to = config.get('jumpTo', '')
+                    if jump_to and jump_to in label_index_map:
+                        current_index = label_index_map[jump_to]
+                    else:
+                        current_index += 1
+                        
+                elif node_type == 'conditional_jump':
+                    # Conditional jump
+                    h, w = img.shape[:2]
+                    condition_type = config.get('conditionType', 'width')
+                    operator = config.get('operator', 'gt')
+                    compare_value = config.get('value', 0)
+                    true_jump = config.get('trueJumpTo', '')
+                    false_jump = config.get('falseJumpTo', '')
+                    
+                    # Get actual value
+                    if condition_type == 'width':
+                        actual_value = w
+                    else:  # height
+                        actual_value = h
+                    
+                    # Evaluate condition
+                    condition_met = False
+                    if operator == 'gt':
+                        condition_met = actual_value > compare_value
+                    elif operator == 'lt':
+                        condition_met = actual_value < compare_value
+                    elif operator == 'eq':
+                        condition_met = actual_value == compare_value
+                    
+                    # Jump based on condition
+                    if condition_met and true_jump and true_jump in label_index_map:
+                        current_index = label_index_map[true_jump]
+                    elif not condition_met and false_jump and false_jump in label_index_map:
+                        current_index = label_index_map[false_jump]
+                    else:
+                        current_index += 1
+                else:
+                    current_index += 1
+            
+            # Save output
+            output_folder = Path(output_path)
+            output_folder.mkdir(parents=True, exist_ok=True)
+            base_name = img_path.stem
+            
+            output_filename = format_output_filename(
+                custom_filename_format,
+                filestem=base_name,
+                scale=current_scale,
+                model_name=last_model_name
+            )
+            final_output_path = output_folder / output_filename
+            
+            if final_output_path.exists():
+                final_output_path = get_unique_filename(final_output_path)
+            
+            cv2.imencode('.png', img)[1].tofile(final_output_path)
+            processed_img_num += 1
+        
+        set_process_state('finish')
+        
     except Exception as e:
         sr_manager.reset()
         error_message = traceback.format_exc()
