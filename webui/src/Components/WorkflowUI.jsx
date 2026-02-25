@@ -16,6 +16,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
+import Alert from '@mui/material/Alert';
 import { SingleProgressBar } from './ProgressBar';
 
 const NODE_TYPES = {
@@ -210,7 +211,7 @@ function InferenceNode({ config, onChange, onDelete, models, gpuOptions, texts }
                             value={config.gpuId || '0'}
                             onChange={(e, v) => onChange({ ...config, gpuId: v || '0' })}
                             renderInput={(params) => <TextField {...params} variant="standard" />}
-                            sx={{ width: 260 }}
+                            sx={{ width: 300 }}
                         />
                         <Typography variant="body2" className="NodeLabel">{texts.nodeSkipAlpha}</Typography>
                         <Checkbox
@@ -411,6 +412,10 @@ function WorkflowUI({ webDevMode, texts }) {
     const [progress, setProgress] = useState(0);
     const [progressText, setProgressText] = useState('0% ETR:--:--:--');
     const [totalProgressText, setTotalProgressText] = useState('');
+    
+    // Process state for alerts
+    const [processState, setProcessState] = useState('idle');
+    const [alertMessage, setAlertMessage] = useState('');
 
     useEffect(() => {
         if (webDevMode) {
@@ -557,7 +562,61 @@ function WorkflowUI({ webDevMode, texts }) {
         }
     };
 
+    const handleAlertClose = () => {
+        setProcessState('idle');
+        setAlertMessage('');
+    };
+
+    // Validate workflow nodes before running
+    const validateWorkflow = () => {
+        // Check input/output paths
+        if (!inputConfig.path) {
+            setAlertMessage(texts.workflowMissingInput);
+            setProcessState('validation');
+            return false;
+        }
+        if (!outputConfig.path) {
+            setAlertMessage(texts.workflowMissingOutput);
+            setProcessState('validation');
+            return false;
+        }
+        
+        // Check each node's required parameters
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            const nodeNum = i + 1;
+            
+            if (node.type === 'inference') {
+                if (!node.config.algoName || !node.config.modelName) {
+                    setAlertMessage(`${texts.nodeInference} ${nodeNum}: ${texts.workflowMissingModel}`);
+                    setProcessState('validation');
+                    return false;
+                }
+            } else if (node.type === 'scale') {
+                if (!node.config.value) {
+                    setAlertMessage(`${texts.nodeScale} ${nodeNum}: ${texts.workflowMissingValue}`);
+                    setProcessState('validation');
+                    return false;
+                }
+            } else if (node.type === 'label') {
+                if (!node.config.name) {
+                    setAlertMessage(`${texts.nodeLabel} ${nodeNum}: ${texts.workflowMissingName}`);
+                    setProcessState('validation');
+                    return false;
+                }
+            }
+            // jump and conditional_jump don't require jumpTo (can fall through)
+        }
+        return true;
+    };
+
     const runWorkflow = () => {
+        handleAlertClose();
+        
+        if (!validateWorkflow()) {
+            return;
+        }
+        
         const workflowData = {
             input: inputConfig,
             output: outputConfig,
@@ -575,8 +634,12 @@ function WorkflowUI({ webDevMode, texts }) {
     useEffect(() => {
         if (!webDevMode) {
             const handleProcessState = (state) => {
-                if (state === 'finish' || state === 'error') {
+                if (state === 'finish') {
                     setRunning(false);
+                    setProcessState('finish');
+                } else if (state === 'error') {
+                    setRunning(false);
+                    setProcessState('error');
                 }
             };
             window.eel.expose(handleProcessState, 'handleSetProcessState');
@@ -588,6 +651,13 @@ function WorkflowUI({ webDevMode, texts }) {
                 setTotalProgressText(totalProgressText);
             };
             window.eel.expose(handleSetProgress, 'handleSetProgress');
+            
+            // Register error callback
+            const showError = (errorText) => {
+                window.electronAPI.showError(errorText);
+                setProcessState('idle');
+            };
+            window.eel.expose(showError, 'showError');
         }
     }, [webDevMode]);
 
@@ -744,6 +814,22 @@ function WorkflowUI({ webDevMode, texts }) {
                         isBatch={inputConfig.inputType === 'Folder'}
                         texts={texts}
                     />
+                )}
+
+                {processState === 'finish' && (
+                    <Alert severity="success" onClose={handleAlertClose} sx={{ mb: 1 }}>
+                        {texts.workflowFinished}
+                    </Alert>
+                )}
+                {processState === 'error' && (
+                    <Alert severity="error" onClose={handleAlertClose} sx={{ mb: 1 }}>
+                        {texts.workflowError}
+                    </Alert>
+                )}
+                {processState === 'validation' && (
+                    <Alert severity="info" onClose={handleAlertClose} sx={{ mb: 1 }}>
+                        {alertMessage}
+                    </Alert>
                 )}
 
                 <div className="RunButtonContainer">

@@ -9,7 +9,7 @@ import Help from './Components/Help';
 import About from './Components/About';
 import Settings from './Components/Settings';
 import translations from './Language';
-var webDevMode = false;
+var webDevMode = true;
 const theme = createTheme({
   typography: {
     fontFamily: 'NotoSerifSC, Arial',

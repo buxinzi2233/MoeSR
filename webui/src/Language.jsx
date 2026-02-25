@@ -74,6 +74,12 @@ const translations = {
         workflowNamePlaceholder: 'Workflow Name',
         workflowSaveSuccess: 'Workflow saved successfully',
         workflowLoadError: 'Failed to load workflow',
+        workflowError: 'An error occurred',
+        workflowMissingInput: 'Missing input path',
+        workflowMissingOutput: 'Missing output path',
+        workflowMissingModel: 'Missing algorithm or model',
+        workflowMissingValue: 'Missing value',
+        workflowMissingName: 'Missing name',
     },
     zh: {
         inferModelConfig:'模型配置',
@@ -150,6 +156,12 @@ const translations = {
         workflowNamePlaceholder: '工作流名称',
         workflowSaveSuccess: '工作流保存成功',
         workflowLoadError: '加载工作流失败',
+        workflowError: '处理发生了错误',
+        workflowMissingInput: '缺少输入路径',
+        workflowMissingOutput: '缺少输出路径',
+        workflowMissingModel: '缺少算法或模型',
+        workflowMissingValue: '缺少值',
+        workflowMissingName: '缺少名称',
     },
 };
 
