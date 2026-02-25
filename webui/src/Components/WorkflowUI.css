@@ -72,6 +72,14 @@
     overflow: hidden;
 }
 
+.WorkflowToolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 0 4px;
+}
+
 .CanvasScrollArea {
     flex: 1;
     overflow-y: auto;

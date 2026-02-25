@@ -68,6 +68,12 @@ const translations = {
         nodeOperatorGt: '>',
         nodeOperatorLt: '<',
         nodeOperatorEq: '=',
+        workflowSelect: 'Select Workflow',
+        workflowSave: 'Save',
+        workflowNew: 'New',
+        workflowNamePlaceholder: 'Workflow Name',
+        workflowSaveSuccess: 'Workflow saved successfully',
+        workflowLoadError: 'Failed to load workflow',
     },
     zh: {
         inferModelConfig:'模型配置',
@@ -138,6 +144,12 @@ const translations = {
         nodeOperatorGt: '>',
         nodeOperatorLt: '<',
         nodeOperatorEq: '=',
+        workflowSelect: '选择工作流',
+        workflowSave: '保存',
+        workflowNew: '新建',
+        workflowNamePlaceholder: '工作流名称',
+        workflowSaveSuccess: '工作流保存成功',
+        workflowLoadError: '加载工作流失败',
     },
 };
 

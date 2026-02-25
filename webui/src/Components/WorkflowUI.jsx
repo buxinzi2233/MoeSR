@@ -14,6 +14,8 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { Typography } from '@mui/material';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import SaveIcon from '@mui/icons-material/Save';
+import AddIcon from '@mui/icons-material/Add';
 
 const NODE_TYPES = {
     inference: 'inference',
@@ -399,6 +401,11 @@ function WorkflowUI({ webDevMode, texts }) {
     const [anchorEl, setAnchorEl] = useState(null);
     const openMenu = Boolean(anchorEl);
 
+    // Workflow Management
+    const [workflowList, setWorkflowList] = useState([]);
+    const [currentWorkflowName, setCurrentWorkflowName] = useState('');
+    const [isNewWorkflow, setIsNewWorkflow] = useState(true);
+
     useEffect(() => {
         if (webDevMode) {
             setModels([
@@ -407,11 +414,74 @@ function WorkflowUI({ webDevMode, texts }) {
                 { name: 'model3', algo: 'moe-ir', scale: 1 }
             ]);
             setGpuOptions(['0', 'NVIDIA GeForce RTX 2060']);
+            setWorkflowList(['Default', 'Upscale 4x']);
         } else {
             window.eel.py_get_all_models()().then(setModels);
             window.eel.py_get_gpu_list()().then(setGpuOptions);
+            refreshWorkflowList();
         }
     }, [webDevMode]);
+
+    const refreshWorkflowList = () => {
+        if (!webDevMode) {
+            window.eel.py_get_workflow_list()().then(setWorkflowList);
+        }
+    };
+
+    const loadWorkflow = async (name) => {
+        if (!name) return;
+        
+        if (webDevMode) {
+            console.log('Loading workflow:', name);
+            setCurrentWorkflowName(name);
+            setIsNewWorkflow(false);
+            return;
+        }
+
+        const data = await window.eel.py_load_workflow(name)();
+        if (data) {
+            setInputConfig(data.input || { path: '', inputType: 'Image' });
+            setOutputConfig(data.output || { path: '' });
+            setNodes(data.nodes || []);
+            setCurrentWorkflowName(name);
+            setIsNewWorkflow(false);
+        } else {
+            console.error(texts.workflowLoadError);
+        }
+    };
+
+    const saveWorkflow = async () => {
+        if (!currentWorkflowName) return;
+
+        const workflowData = {
+            input: inputConfig,
+            output: outputConfig,
+            nodes: nodes
+        };
+
+        if (webDevMode) {
+            console.log('Saving workflow:', currentWorkflowName, workflowData);
+            if (isNewWorkflow) {
+                setWorkflowList([...workflowList, currentWorkflowName]);
+                setIsNewWorkflow(false);
+            }
+        } else {
+            const success = await window.eel.py_save_workflow(currentWorkflowName, workflowData)();
+            if (success) {
+                refreshWorkflowList();
+                setIsNewWorkflow(false);
+                // Optional: Show success message
+            }
+        }
+    };
+
+    const handleNewWorkflow = () => {
+        setInputConfig({ path: '', inputType: 'Image' });
+        setOutputConfig({ path: '' });
+        setNodes([]);
+        setCurrentWorkflowName('');
+        setIsNewWorkflow(true);
+    };
 
     const labels = nodes
         .filter(n => n.type === NODE_TYPES.label)
@@ -553,6 +623,38 @@ function WorkflowUI({ webDevMode, texts }) {
             </div>
 
             <div className="WorkflowCanvas">
+                <div className="WorkflowToolbar">
+                    <Autocomplete
+                        size="small"
+                        freeSolo
+                        options={workflowList}
+                        value={currentWorkflowName}
+                        onInputChange={(e, v) => {
+                            setCurrentWorkflowName(v);
+                            if (workflowList.includes(v)) {
+                                loadWorkflow(v);
+                            } else {
+                                setIsNewWorkflow(true);
+                            }
+                        }}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                variant="standard"
+                                placeholder={texts.workflowNamePlaceholder}
+                                sx={{ minWidth: 200 }}
+                            />
+                        )}
+                        sx={{ flex: 1, maxWidth: 300 }}
+                    />
+                    <IconButton onClick={saveWorkflow} disabled={!currentWorkflowName} title={texts.workflowSave}>
+                        <SaveIcon />
+                    </IconButton>
+                    <IconButton onClick={handleNewWorkflow} title={texts.workflowNew}>
+                        <AddIcon />
+                    </IconButton>
+                </div>
+
                 <div className="CanvasScrollArea">
                     <div className="CanvasContent">
                         <InputNode

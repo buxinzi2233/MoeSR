@@ -148,6 +148,48 @@ def py_save_settings(new_settings):
         return -1
 
 
+@eel.expose
+def py_get_workflow_list():
+    """Get list of saved workflows"""
+    workflow_dir = Path('workflows')
+    workflow_dir.mkdir(exist_ok=True)
+    
+    workflows = []
+    for file in workflow_dir.glob('*.json'):
+        workflows.append(file.stem)
+    return workflows
+
+
+@eel.expose
+def py_load_workflow(name):
+    """Load a workflow by name"""
+    try:
+        workflow_path = Path('workflows') / f"{name}.json"
+        if workflow_path.exists():
+            with open(workflow_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return None
+    except Exception as e:
+        print(f"Error loading workflow {name}: {e}")
+        return None
+
+
+@eel.expose
+def py_save_workflow(name, data):
+    """Save a workflow"""
+    try:
+        workflow_dir = Path('workflows')
+        workflow_dir.mkdir(exist_ok=True)
+        
+        workflow_path = workflow_dir / f"{name}.json"
+        with open(workflow_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error saving workflow {name}: {e}")
+        return False
+
+
 def seconds_to_hms(seconds):
     if seconds is None or seconds < 0:
         return '--:--:--'
