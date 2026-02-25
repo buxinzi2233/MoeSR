@@ -1,6 +1,17 @@
 # MoeSR
 
 ## 更新日志
+
+v1.1.0: 
+
+> Update：优化进度条显示，更加平滑
+>
+> Update：支持自定义输出文件名格式，支持记忆常用选项，支持输出留空并自动保存到相对文件夹中
+>
+> Update：添加工作流功能，支持推理，缩放，长宽条件判断等节点
+>
+> Update：支持FP16模型（MoeIRv1.1-fp16）,IR 1.1支持对中度压缩，缩放，伪影的修复
+
 v1.0.2: 
 
 > Fix：修复ResizeTo未生效问题
@@ -45,6 +56,7 @@ MoeSR是一个专注于插画，CG，漫画等ACGN领域图像超分辨率与图
 | Real-HATGAN-x1: jp_Illustration-fixonly | 适用于日系插画，仅修复图片，不进行放大                       |
 | Real-HATGAN-x2: jp_Illustration-fix1    | 适用于日系插画，一般修复强度                                 |
 | MoeIR: MoeIRv1                          | 高效的图像恢复模型，对被压缩的图像（如X，Pixiv上的jpg等）有很好的恢复效果 |
+| MoeIR: MoeIRv1.1                        | 相对v1更强大的图像恢复模型，支持对中度压缩，缩放，伪影的修复（可能对轻度压缩视频也能修复，还未测试） |
 
 注：MoeIR为测试模型，暂未公开发放
 
