@@ -45,7 +45,7 @@ async function getGPUList(webDevMode) {
     }
 }
 
-function InferenceUI({ algoName, webDevMode, texts, alwaysShowAdvanced }) {
+function InferenceUI({ algoName, webDevMode, texts, alwaysShowAdvanced, rememberOptions, defaultOutputPath }) {
 
     // AlgoName : real-esrgan or real-hatgan
     var algoTitle;
@@ -77,6 +77,20 @@ function InferenceUI({ algoName, webDevMode, texts, alwaysShowAdvanced }) {
         setProcessState(state)
         if (state === 'finish') {
             setInfering(false)
+            // Save remembered options on success
+            if (rememberOptions && !webDevMode) {
+                window.eel.py_get_settings()().then((settings) => {
+                    settings.rememberedGPU = GPUID;
+                    // Save model per algorithm
+                    if (!settings.rememberedModels) {
+                        settings.rememberedModels = {};
+                    }
+                    settings.rememberedModels[algoName] = modelName;
+                    settings.rememberedTileSize = tileSize;
+                    settings.rememberedSkipAlpha = isSkipAlpha;
+                    window.eel.py_save_settings(settings);
+                });
+            }
         }
     }
     function handleAlertClose() {
@@ -98,25 +112,43 @@ function InferenceUI({ algoName, webDevMode, texts, alwaysShowAdvanced }) {
         stateAlert = <Alert severity="info" onClose={() => { handleAlertClose() }}
         >{texts.inferAlertMissingParam}</Alert>;
     }
+    function getDefaultOutputPath(inputImage, inputType) {
+        if (!inputImage) return '';
+        // Get parent folder of input
+        const separator = inputImage.includes('/') ? '/' : '\\';
+        let parentFolder;
+        if (inputType === 'Folder') {
+            parentFolder = inputImage;
+        } else {
+            const lastSepIndex = inputImage.lastIndexOf(separator);
+            parentFolder = lastSepIndex > 0 ? inputImage.substring(0, lastSepIndex) : inputImage;
+        }
+        return parentFolder + separator + 'MoeSR_output';
+    }
+
     function checkInput(modelName, inputImage, outputPath) {
         if (!modelName || !inputImage || !outputPath) {
             setInfering(false);
             setProcessState('missing param');
-            return false
+            return false;
         }
-        else {
-            return true
-        }
+        return true;
     }
 
     function runProcess(modelName, tileSize, scale, isSkipAlpha, resizeTo, inputType, inputImage, outputPath, GPUID, scalingMode) {
+        // Calculate actual output path
+        let actualOutputPath = outputPath;
+        if (!outputPath && defaultOutputPath) {
+            actualOutputPath = getDefaultOutputPath(inputImage, inputType);
+        }
+        
         if (webDevMode) {
             // for dev
-            console.log(modelName, tileSize, scale, isSkipAlpha, resizeTo, inputType, inputImage, outputPath, GPUID, scalingMode)
+            console.log(modelName, tileSize, scale, isSkipAlpha, resizeTo, inputType, inputImage, actualOutputPath, GPUID, scalingMode)
         }
         else {
-            if (checkInput(modelName, inputImage, outputPath)) {
-                window.eel.py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo, inputType, inputImage, outputPath, GPUID, algoName, scalingMode)
+            if (checkInput(modelName, inputImage, actualOutputPath)) {
+                window.eel.py_run_process(modelName, tileSize, scale, isSkipAlpha, resizeTo, inputType, inputImage, actualOutputPath, GPUID, algoName, scalingMode)
             }
         }
     }
@@ -172,6 +204,30 @@ function InferenceUI({ algoName, webDevMode, texts, alwaysShowAdvanced }) {
         });
         console.log('Effect run ' + algoName);
     }, [algoName, webDevMode]);
+
+    // Load remembered options and reset model when switching algorithms
+    useEffect(() => {
+        // Reset model when algorithm changes
+        setModelName(null);
+        
+        if (rememberOptions && !webDevMode) {
+            window.eel.py_get_settings()().then((settings) => {
+                if (settings.rememberedGPU !== undefined) {
+                    setGPUID(settings.rememberedGPU);
+                }
+                // Load model for current algorithm
+                if (settings.rememberedModels && settings.rememberedModels[algoName]) {
+                    setModelName(settings.rememberedModels[algoName]);
+                }
+                if (settings.rememberedTileSize !== undefined) {
+                    setTileSize(settings.rememberedTileSize);
+                }
+                if (settings.rememberedSkipAlpha !== undefined) {
+                    setIsSkipAlpha(settings.rememberedSkipAlpha);
+                }
+            });
+        }
+    }, [rememberOptions, webDevMode, algoName]);
     if (!webDevMode) {
         window.eel.expose(handleSetProgress, 'handleSetProgress');
         window.eel.expose(handleSetProcessState, 'handleSetProcessState');
@@ -279,6 +335,7 @@ function InferenceUI({ algoName, webDevMode, texts, alwaysShowAdvanced }) {
                                 onChange={(event, newValue) => {
                                     handelSetModelName(newValue);
                                 }}
+                                value={modelName}
                                 renderInput={(params) => <TextField {...params} variant='standard' />}
                             />
                         </Box>

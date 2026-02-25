@@ -90,9 +90,41 @@ class SRManager:
         self._current_gpuid = None
 
 
+class WorkflowSRManager:
+    """SR Manager that caches multiple models for workflow use"""
+    def __init__(self, model_manager):
+        self.model_manager = model_manager
+        # Cache: key = (model_path, gpuid), value = sr_instance
+        self._sr_instances = {}
+
+    def get_instance(self, model_name, algo_name, gpuid, progress_setter):
+        model_info: ModelInfo = self.model_manager.find_model(model_name, algo_name)
+        cache_key = (model_info.path, gpuid)
+        
+        if cache_key not in self._sr_instances:
+            print(f"Creating SR Instance for cache. Model: {model_info.path}, GPU ID: {gpuid}")
+            provider_options = [{'device_id': gpuid}] if gpuid >= 0 else None
+            self._sr_instances[cache_key] = OnnxSRInfer(
+                model_info.path, model_info.scale, model_info.name, model_info.precision,
+                provider_options=provider_options,
+                progress_setter=progress_setter)
+        else:
+            # Update progress_setter for existing instance
+            self._sr_instances[cache_key].progress_setter = progress_setter
+            print(f"Reusing cached SR Instance. Model: {model_info.path}, GPU ID: {gpuid}")
+
+        return self._sr_instances[cache_key], model_info
+
+    def reset(self):
+        for instance in self._sr_instances.values():
+            del instance
+        self._sr_instances = {}
+
+
 port = 10721
 model_manager = ModelManager()
 sr_manager = SRManager(model_manager)
+workflow_sr_manager = WorkflowSRManager(model_manager)
 g_progress_state = {}
 try:
     gpu_enumerator = GPUEnum()
@@ -500,9 +532,13 @@ def py_run_workflow(workflow_data):
     g_progress_state = {'last_progress': None, 'last_time': None}
     
     try:
-        # Load custom filename format from settings
+        # Load settings
         settings = py_get_settings()
         custom_filename_format = settings.get('customFilenameFormat', '{filestem}_MoeSR_x{scale}_{model_name}.png')
+        keep_models = settings.get('workflowKeepModels', False)
+        
+        # Choose SR manager based on setting
+        active_sr_manager = workflow_sr_manager if keep_models else sr_manager
         
         # Parse input
         input_config = workflow_data.get('input', {})
@@ -597,7 +633,7 @@ def py_run_workflow(workflow_data):
                     
                     progress_callback = make_workflow_progress_callback(_node_index, _total_img_num, _processed_img_num)
                     
-                    sr_instance, model = sr_manager.get_instance(model_name, algo_name, int(real_gpu_id), progress_callback)
+                    sr_instance, model = active_sr_manager.get_instance(model_name, algo_name, int(real_gpu_id), progress_callback)
                     sr_instance.alpha_upsampler = 'interpolation' if skip_alpha else 'default'
                     sr_instance.total_img_num = 1
                     sr_instance.processed_img_num = 0
@@ -689,7 +725,7 @@ def py_run_workflow(workflow_data):
         set_process_state('finish')
         
     except Exception as e:
-        sr_manager.reset()
+        active_sr_manager.reset()
         error_message = traceback.format_exc()
         print(error_message)
         show_error(error_message)
@@ -700,6 +736,7 @@ if __name__ == '__main__':
     # Dev
     model_manager = ModelManager(r'E:\python\MoeSR\models')
     sr_manager = SRManager(model_manager)
+    workflow_sr_manager = WorkflowSRManager(model_manager)
     eel.start(
         'index.html',
         mode='custom',

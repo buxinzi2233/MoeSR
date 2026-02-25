@@ -8,11 +8,14 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Button from '@mui/material/Button';
 import { useState, useRef, useEffect } from 'react';
 
-function Settings({ langSetter, webDevMode, language, alwaysShowAdvanced, setAlwaysShowAdvanced, texts }) {
+function Settings({ langSetter, webDevMode, language, alwaysShowAdvanced, setAlwaysShowAdvanced, rememberOptions, setRememberOptions, defaultOutputPath, setDefaultOutputPath, workflowKeepModels, setWorkflowKeepModels, texts }) {
     const languageOptions = ['English', '简体中文'];
     const [customFilenameFormat, setCustomFilenameFormat] = useState('{filestem}_MoeSR_x{scale}_{model_name}.png');
     const [localLanguage, setLocalLanguage] = useState(language);
     const [localAlwaysShowAdvanced, setLocalAlwaysShowAdvanced] = useState(alwaysShowAdvanced);
+    const [localRememberOptions, setLocalRememberOptions] = useState(rememberOptions);
+    const [localDefaultOutputPath, setLocalDefaultOutputPath] = useState(defaultOutputPath);
+    const [localWorkflowKeepModels, setLocalWorkflowKeepModels] = useState(workflowKeepModels);
     const [filenameError, setFilenameError] = useState('');
     const filenameInputRef = useRef(null);
 
@@ -38,6 +41,18 @@ function Settings({ langSetter, webDevMode, language, alwaysShowAdvanced, setAlw
     useEffect(() => {
         setLocalAlwaysShowAdvanced(alwaysShowAdvanced);
     }, [alwaysShowAdvanced]);
+
+    useEffect(() => {
+        setLocalRememberOptions(rememberOptions);
+    }, [rememberOptions]);
+
+    useEffect(() => {
+        setLocalDefaultOutputPath(defaultOutputPath);
+    }, [defaultOutputPath]);
+
+    useEffect(() => {
+        setLocalWorkflowKeepModels(workflowKeepModels);
+    }, [workflowKeepModels]);
 
     // Validate filename format
     const validateFilename = (filename) => {
@@ -71,10 +86,28 @@ function Settings({ langSetter, webDevMode, language, alwaysShowAdvanced, setAlw
             setAlwaysShowAdvanced(localAlwaysShowAdvanced);
         }
 
-        let settings = { 
-            'language': localLanguage, 
+        // Apply rememberOptions change
+        if (localRememberOptions !== rememberOptions) {
+            setRememberOptions(localRememberOptions);
+        }
+
+        // Apply defaultOutputPath change
+        if (localDefaultOutputPath !== defaultOutputPath) {
+            setDefaultOutputPath(localDefaultOutputPath);
+        }
+
+        // Apply workflowKeepModels change
+        if (localWorkflowKeepModels !== workflowKeepModels) {
+            setWorkflowKeepModels(localWorkflowKeepModels);
+        }
+
+        let settings = {
+            'language': localLanguage,
             'alwaysShowAdvanced': localAlwaysShowAdvanced,
             'customFilenameFormat': customFilenameFormat,
+            'rememberOptions': localRememberOptions,
+            'defaultOutputPath': localDefaultOutputPath,
+            'workflowKeepModels': localWorkflowKeepModels,
         }
         if (webDevMode) {
             console.log(settings)
@@ -207,6 +240,54 @@ function Settings({ langSetter, webDevMode, language, alwaysShowAdvanced, setAlw
                         }}
                     />
                 } label={texts.settingsAlwaysShowAdvanced} />
+            </Box>
+
+            <Box
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '20px'
+                }}>
+                <FormControlLabel control={
+                    <Switch
+                        checked={localRememberOptions}
+                        onChange={(event) => {
+                            setLocalRememberOptions(event.target.checked);
+                        }}
+                    />
+                } label={texts.settingsRememberOptions} />
+            </Box>
+
+            <Box
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '20px'
+                }}>
+                <FormControlLabel control={
+                    <Switch
+                        checked={localDefaultOutputPath}
+                        onChange={(event) => {
+                            setLocalDefaultOutputPath(event.target.checked);
+                        }}
+                    />
+                } label={texts.settingsDefaultOutputPath} />
+            </Box>
+
+            <Box
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '20px'
+                }}>
+                <FormControlLabel control={
+                    <Switch
+                        checked={localWorkflowKeepModels}
+                        onChange={(event) => {
+                            setLocalWorkflowKeepModels(event.target.checked);
+                        }}
+                    />
+                } label={texts.settingsWorkflowKeepModels} />
             </Box>
 
             <Box

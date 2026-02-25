@@ -32,6 +32,9 @@ const translations = {
         settingsSameAsInput: 'Same as Input',
         settingsSaveButton: 'Save Settings',
         settingsFilenameError: 'Filename contains illegal characters: \\ / : * ? " < > |',
+        settingsRememberOptions: 'Remember Inference Options',
+        settingsDefaultOutputPath: 'Output to MoeSR_output when empty',
+        settingsWorkflowKeepModels: 'Keep models loaded in workflow',
         // Workflow
         workflowTitle: 'Workflow',
         workflowRun: 'Run Workflow',
@@ -114,6 +117,9 @@ const translations = {
         settingsSameAsInput: '仅文件名',
         settingsSaveButton: '保存设置',
         settingsFilenameError: '文件名包含非法字符: \\ / : * ? " < > |',
+        settingsRememberOptions: '记忆常用推理选项',
+        settingsDefaultOutputPath: '输出留空时保存到 MoeSR_output',
+        settingsWorkflowKeepModels: '工作流中保持模型加载',
         // Workflow
         workflowTitle: '工作流',
         workflowRun: '运行工作流',

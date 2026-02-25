@@ -44,7 +44,7 @@ const theme = createTheme({
 });
 async function getSettings(webDevMode) {
   if (webDevMode) {
-      let dummyData = {'language':'English', 'alwaysShowAdvanced': false}
+      let dummyData = {'language':'English', 'alwaysShowAdvanced': false, 'rememberOptions': false, 'defaultOutputPath': false, 'workflowKeepModels': false}
       return dummyData
   }
   else {
@@ -55,12 +55,24 @@ function App() {
   const [navigation, setNavigation] = useState('real-esrgan');
   const [lang,SetLang] = useState('English');
   const [alwaysShowAdvanced, setAlwaysShowAdvanced] = useState(false);
+  const [rememberOptions, setRememberOptions] = useState(false);
+  const [defaultOutputPath, setDefaultOutputPath] = useState(false);
+  const [workflowKeepModels, setWorkflowKeepModels] = useState(false);
   const langMap = {'English':'en','简体中文':'zh'};
   useEffect(() => {
     getSettings(webDevMode).then(result => {
       SetLang(result['language']);
       if (result['alwaysShowAdvanced'] !== undefined) {
         setAlwaysShowAdvanced(result['alwaysShowAdvanced']);
+      }
+      if (result['rememberOptions'] !== undefined) {
+        setRememberOptions(result['rememberOptions']);
+      }
+      if (result['defaultOutputPath'] !== undefined) {
+        setDefaultOutputPath(result['defaultOutputPath']);
+      }
+      if (result['workflowKeepModels'] !== undefined) {
+        setWorkflowKeepModels(result['workflowKeepModels']);
       }
     })
     console.log('Effect run ' + lang)
@@ -73,10 +85,10 @@ function App() {
   var content;
   // real-esrgan or real-hatgan
   if (availableAlgos.includes(navigation)) {
-    content = <InferenceUI algoName={navigation} webDevMode={webDevMode} texts={texts} alwaysShowAdvanced={alwaysShowAdvanced}></InferenceUI>
+    content = <InferenceUI algoName={navigation} webDevMode={webDevMode} texts={texts} alwaysShowAdvanced={alwaysShowAdvanced} rememberOptions={rememberOptions} defaultOutputPath={defaultOutputPath}></InferenceUI>
   }
   else if (navigation === 'settings') {
-    content = <Settings langSetter={SetLang} webDevMode={webDevMode} language={lang} alwaysShowAdvanced={alwaysShowAdvanced} setAlwaysShowAdvanced={setAlwaysShowAdvanced} texts={texts}></Settings>
+    content = <Settings langSetter={SetLang} webDevMode={webDevMode} language={lang} alwaysShowAdvanced={alwaysShowAdvanced} setAlwaysShowAdvanced={setAlwaysShowAdvanced} rememberOptions={rememberOptions} setRememberOptions={setRememberOptions} defaultOutputPath={defaultOutputPath} setDefaultOutputPath={setDefaultOutputPath} workflowKeepModels={workflowKeepModels} setWorkflowKeepModels={setWorkflowKeepModels} texts={texts}></Settings>
   }
   else if (navigation === 'workflow') {
     content = <WorkflowUI webDevMode={webDevMode} texts={texts}></WorkflowUI>
