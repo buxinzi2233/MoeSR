@@ -175,6 +175,10 @@ class OnnxSRInfer:
 
     def universal_process_pipeline(self, image, tile_size, tile_pad=8):
         img_mode = 'RGB'
+        
+        # handle grayscale image
+        if image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
         h, w, c = image.shape
         # handle RGBA image
         if c == 4:
