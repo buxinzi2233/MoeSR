@@ -1,3 +1,5 @@
-onnxruntime-directml
+onnxruntime-gpu==1.25.1; platform_system != "Windows"
+onnxruntime-directml; platform_system == "Windows"
 opencv-python
+setuptools<81
 git+https://github.com/luoyily/Eel.git

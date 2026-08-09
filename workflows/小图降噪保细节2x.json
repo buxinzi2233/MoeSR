@@ -1,0 +1,40 @@
+{
+    "input": {
+        "path": "",
+        "inputType": "Image"
+    },
+    "output": {
+        "path": ""
+    },
+    "nodes": [
+        {
+            "id": "small_denoise_x1",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x1_jp_Illustration-fix_only",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "small_reconstruct_x4",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x4_jp_Illustration-fix1",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "small_output_2x",
+            "type": "scale",
+            "config": {
+                "value": "1/2"
+            }
+        }
+    ]
+}

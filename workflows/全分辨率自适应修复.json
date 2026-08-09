@@ -1,0 +1,255 @@
+{
+    "input": {
+        "path": "",
+        "inputType": "Image"
+    },
+    "output": {
+        "path": ""
+    },
+    "nodes": [
+        {
+            "id": "adaptive_check_tiny_width",
+            "type": "conditional_jump",
+            "config": {
+                "conditionType": "width",
+                "operator": "lt",
+                "value": 512,
+                "trueJumpTo": "check_tiny_height",
+                "falseJumpTo": "check_small_width"
+            }
+        },
+        {
+            "id": "adaptive_label_check_tiny_height",
+            "type": "label",
+            "config": {
+                "name": "check_tiny_height"
+            }
+        },
+        {
+            "id": "adaptive_check_tiny_height",
+            "type": "conditional_jump",
+            "config": {
+                "conditionType": "height",
+                "operator": "lt",
+                "value": 512,
+                "trueJumpTo": "tiny",
+                "falseJumpTo": "small"
+            }
+        },
+        {
+            "id": "adaptive_label_check_small_width",
+            "type": "label",
+            "config": {
+                "name": "check_small_width"
+            }
+        },
+        {
+            "id": "adaptive_check_small_width",
+            "type": "conditional_jump",
+            "config": {
+                "conditionType": "width",
+                "operator": "lt",
+                "value": 1024,
+                "trueJumpTo": "small",
+                "falseJumpTo": "check_small_height"
+            }
+        },
+        {
+            "id": "adaptive_label_check_small_height",
+            "type": "label",
+            "config": {
+                "name": "check_small_height"
+            }
+        },
+        {
+            "id": "adaptive_check_small_height",
+            "type": "conditional_jump",
+            "config": {
+                "conditionType": "height",
+                "operator": "lt",
+                "value": 1024,
+                "trueJumpTo": "small",
+                "falseJumpTo": "check_huge_width"
+            }
+        },
+        {
+            "id": "adaptive_label_check_huge_width",
+            "type": "label",
+            "config": {
+                "name": "check_huge_width"
+            }
+        },
+        {
+            "id": "adaptive_check_huge_width",
+            "type": "conditional_jump",
+            "config": {
+                "conditionType": "width",
+                "operator": "gt",
+                "value": 2560,
+                "trueJumpTo": "huge",
+                "falseJumpTo": "check_huge_height"
+            }
+        },
+        {
+            "id": "adaptive_label_check_huge_height",
+            "type": "label",
+            "config": {
+                "name": "check_huge_height"
+            }
+        },
+        {
+            "id": "adaptive_check_huge_height",
+            "type": "conditional_jump",
+            "config": {
+                "conditionType": "height",
+                "operator": "gt",
+                "value": 2560,
+                "trueJumpTo": "huge",
+                "falseJumpTo": "normal"
+            }
+        },
+        {
+            "id": "adaptive_label_tiny",
+            "type": "label",
+            "config": {
+                "name": "tiny"
+            }
+        },
+        {
+            "id": "adaptive_tiny_restore_x1",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x1_jp_Illustration-fix_only",
+                "tileSize": 128,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "adaptive_tiny_reconstruct_x4",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x4_jp_Illustration-fix1",
+                "tileSize": 128,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "adaptive_tiny_to_end",
+            "type": "jump",
+            "config": {
+                "jumpTo": "end"
+            }
+        },
+        {
+            "id": "adaptive_label_small",
+            "type": "label",
+            "config": {
+                "name": "small"
+            }
+        },
+        {
+            "id": "adaptive_small_restore_x1",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x1_jp_Illustration-fix_only",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "adaptive_small_reconstruct_x4",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x4_jp_Illustration-fix1",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "adaptive_small_output_2x",
+            "type": "scale",
+            "config": {
+                "value": "1/2"
+            }
+        },
+        {
+            "id": "adaptive_small_to_end",
+            "type": "jump",
+            "config": {
+                "jumpTo": "end"
+            }
+        },
+        {
+            "id": "adaptive_label_normal",
+            "type": "label",
+            "config": {
+                "name": "normal"
+            }
+        },
+        {
+            "id": "adaptive_normal_restore_x4",
+            "type": "inference",
+            "config": {
+                "algoName": "real-esrgan",
+                "modelName": "x4_jp_Illustration-fix1-d",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "adaptive_normal_output_1x",
+            "type": "scale",
+            "config": {
+                "value": "1/4"
+            }
+        },
+        {
+            "id": "adaptive_normal_to_end",
+            "type": "jump",
+            "config": {
+                "jumpTo": "end"
+            }
+        },
+        {
+            "id": "adaptive_label_huge",
+            "type": "label",
+            "config": {
+                "name": "huge"
+            }
+        },
+        {
+            "id": "adaptive_huge_restore_x1",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x1_jp_Illustration-fix_only",
+                "tileSize": 384,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "adaptive_huge_to_end",
+            "type": "jump",
+            "config": {
+                "jumpTo": "end"
+            }
+        },
+        {
+            "id": "adaptive_label_end",
+            "type": "label",
+            "config": {
+                "name": "end"
+            }
+        }
+    ]
+}

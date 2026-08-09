@@ -1,4 +1,5 @@
 import math
+import os
 import traceback
 from pathlib import Path
 import json
@@ -12,6 +13,9 @@ from onnx_infer import OnnxSRInfer
 from gpu_enum import GPUEnum, select_better_gpu
 
 
+APP_ROOT = Path(__file__).resolve().parent
+
+
 class ModelInfo:
     def __init__(self, name, path, scale, algo, precision='fp32'):
         self.name = name
@@ -22,8 +26,8 @@ class ModelInfo:
 
 
 class ModelManager:
-    def __init__(self, model_root='models'):
-        self.model_root = Path(model_root)
+    def __init__(self, model_root=None):
+        self.model_root = Path(model_root) if model_root else APP_ROOT / 'models'
         self.model_list: list[ModelInfo] = self._scan_models()
 
     def _scan_models(self):
@@ -135,7 +139,7 @@ except:
     gpu_dict = None
     gpu_list = [str(i) for i in range(16)]
 
-eel.init('webui/dist', custom_js_func=['handleSetProgress', 'showError', 'handleSetProcessState'])
+eel.init(str(APP_ROOT / 'webui' / 'dist'), custom_js_func=['handleSetProgress', 'showError', 'handleSetProcessState'])
 
 # Sliding window size for ETR calculation
 SLIDING_WINDOW_SIZE = 5
@@ -168,7 +172,7 @@ def py_get_gpu_list():
 @eel.expose
 def py_get_settings():
     try:
-        with open('settings.json', 'r', encoding='utf-8') as f:
+        with open(APP_ROOT / 'settings.json', 'r', encoding='utf-8') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
@@ -177,7 +181,7 @@ def py_get_settings():
 @eel.expose
 def py_save_settings(new_settings):
     try:
-        with open('settings.json', 'w', encoding='utf-8') as f:
+        with open(APP_ROOT / 'settings.json', 'w', encoding='utf-8') as f:
             json.dump(new_settings, f, ensure_ascii=False, indent=4)
         return 0
     except Exception as e:
@@ -187,7 +191,7 @@ def py_save_settings(new_settings):
 @eel.expose
 def py_get_workflow_list():
     """Get list of saved workflows"""
-    workflow_dir = Path('workflows')
+    workflow_dir = APP_ROOT / 'workflows'
     workflow_dir.mkdir(exist_ok=True)
     
     workflows = []
@@ -200,7 +204,7 @@ def py_get_workflow_list():
 def py_load_workflow(name):
     """Load a workflow by name"""
     try:
-        workflow_path = Path('workflows') / f"{name}.json"
+        workflow_path = APP_ROOT / 'workflows' / f"{name}.json"
         if workflow_path.exists():
             with open(workflow_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -214,7 +218,7 @@ def py_load_workflow(name):
 def py_save_workflow(name, data):
     """Save a workflow"""
     try:
-        workflow_dir = Path('workflows')
+        workflow_dir = APP_ROOT / 'workflows'
         workflow_dir.mkdir(exist_ok=True)
         
         workflow_path = workflow_dir / f"{name}.json"
@@ -733,21 +737,12 @@ def py_run_workflow(workflow_data):
 
 
 if __name__ == '__main__':
-    # Dev
-    model_manager = ModelManager(r'E:\python\MoeSR\models')
+    # Keep all app-relative files stable when launched from a service or another cwd.
+    os.chdir(APP_ROOT)
     sr_manager = SRManager(model_manager)
     workflow_sr_manager = WorkflowSRManager(model_manager)
-    eel.start(
-        'index.html',
-        mode='custom',
-        cmdline_args=['E:/python/MoeSR/electron/electron.exe', 'E:/python/MoeSR/electron_app/main.js'],
-        port=port
-    )
-
-    # Release
-    # eel.start(
-    #     'index.html',
-    #     mode='custom',
-    #     cmdline_args=['electron/electron.exe', 'electron_app/main.js'],
-    #     port=port
-    #     )
+    port = int(os.environ.get('MOESR_PORT', port))
+    host = os.environ.get('MOESR_HOST', '127.0.0.1')
+    mode_name = os.environ.get('MOESR_EEL_MODE', 'default').strip().lower()
+    mode = None if mode_name in {'none', 'false', 'off', '0'} else mode_name
+    eel.start('index.html', mode=mode, host=host, port=port)

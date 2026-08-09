@@ -1,0 +1,29 @@
+{
+    "input": {
+        "path": "",
+        "inputType": "Image"
+    },
+    "output": {
+        "path": ""
+    },
+    "nodes": [
+        {
+            "id": "large_detail_restore_x4",
+            "type": "inference",
+            "config": {
+                "algoName": "real-esrgan",
+                "modelName": "x4_jp_Illustration-fix1-d",
+                "tileSize": 384,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "large_return_to_original_size",
+            "type": "scale",
+            "config": {
+                "value": "1/4"
+            }
+        }
+    ]
+}

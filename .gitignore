@@ -201,3 +201,7 @@ test.py
 gpu_enum.dll
 plans/
 workflows/
+
+# Bundled Electron runtimes are local release artifacts; keep them out of Git.
+/electron/
+/electron-linux/

@@ -8,7 +8,7 @@ import time
 class OnnxSRInfer:
 
     def __init__(self, model_path, scale, name, precision='fp32',
-                 alpha_upsampler='sr model', providers=['DmlExecutionProvider'], provider_options=None,
+                 alpha_upsampler='sr model', providers=None, provider_options=None,
                  progress_setter=None):
         """Onnx SR Infer
 
@@ -18,11 +18,51 @@ class OnnxSRInfer:
             name (str): Instance name,used to determine whether to continue reusing this instance or destroy it when switching models.
             precision (str, optional): Model precision. 'fp32' or 'fp16'
             alpha_upsampler (str, optional): Method of SR the Alpha channel. Defaults to 'sr model'.Optionally "sr model" or "interpolation".
-            providers (list, optional): Ort providers. Defaults to ['DmlExecutionProvider'].
+            providers (list, optional): Ort providers. If omitted, prefer CUDA, then DirectML,
+                and finally the CPU provider available on the current platform.
             provider_options (list, optional): eg. [{'device_id': 0}]
             progress_setter: The function called when completing a block.(Used to communicate progress information)
         """
-        self.sess = ort.InferenceSession(model_path, providers=providers, provider_options=provider_options)
+        available = ort.get_available_providers()
+        if providers is None:
+            requested = ['CUDAExecutionProvider', 'DmlExecutionProvider', 'CPUExecutionProvider']
+        else:
+            requested = list(providers)
+            if 'CPUExecutionProvider' not in requested:
+                requested.append('CPUExecutionProvider')
+
+        selected = [provider for provider in requested if provider in available]
+        if not selected:
+            raise RuntimeError(
+                f'No usable ONNX Runtime execution provider. '
+                f'Requested: {requested}; available: {available}'
+            )
+
+        # ORT requires one options dictionary per selected provider. Callers pass
+        # one device_id dictionary for the accelerator; CPU uses an empty mapping.
+        if isinstance(provider_options, list):
+            accelerator_options = provider_options[0] if provider_options else {}
+        else:
+            accelerator_options = provider_options or {}
+        selected_options = [
+            accelerator_options if provider in {'CUDAExecutionProvider', 'DmlExecutionProvider'} else {}
+            for provider in selected
+        ]
+
+        if 'CUDAExecutionProvider' in selected and hasattr(ort, 'preload_dlls'):
+            try:
+                # Recent ORT wheels ship CUDA libraries as Python packages and
+                # require an explicit preload before creating a CUDA session.
+                ort.preload_dlls()
+            except Exception as exc:
+                print(f'CUDA library preload failed; ORT may fall back to CPU: {exc}')
+
+        print(f'Using ONNX Runtime providers: {selected}')
+        self.sess = ort.InferenceSession(
+            model_path,
+            providers=selected,
+            provider_options=selected_options,
+        )
         self.name = name
         self.scale = scale
         self.precision = precision

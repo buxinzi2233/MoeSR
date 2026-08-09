@@ -1,0 +1,58 @@
+{
+    "input": {
+        "path": "",
+        "inputType": "Image"
+    },
+    "output": {
+        "path": ""
+    },
+    "nodes": [
+        {
+            "id": "ultimate_restore_x1",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x1_jp_Illustration-fix_only",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "ultimate_reconstruct_x4",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x4_jp_Illustration-fix1",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "ultimate_intermediate_2x",
+            "type": "scale",
+            "config": {
+                "value": "1/2"
+            }
+        },
+        {
+            "id": "ultimate_detail_preserve_x4",
+            "type": "inference",
+            "config": {
+                "algoName": "real-esrgan",
+                "modelName": "x4_jp_Illustration-fix1-d",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "ultimate_output_2x",
+            "type": "scale",
+            "config": {
+                "value": "1/4"
+            }
+        }
+    ]
+}

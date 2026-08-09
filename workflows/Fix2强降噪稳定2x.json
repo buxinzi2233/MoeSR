@@ -1,0 +1,40 @@
+{
+    "input": {
+        "path": "",
+        "inputType": "Image"
+    },
+    "output": {
+        "path": ""
+    },
+    "nodes": [
+        {
+            "id": "fix2_strong_restore_x4",
+            "type": "inference",
+            "config": {
+                "algoName": "real-esrgan",
+                "modelName": "x4_jp_Illustration-fix2",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        },
+        {
+            "id": "fix2_consolidate_to_2x",
+            "type": "scale",
+            "config": {
+                "value": "1/2"
+            }
+        },
+        {
+            "id": "fix2_stabilize_at_target",
+            "type": "inference",
+            "config": {
+                "algoName": "real-hatgan",
+                "modelName": "x1_jp_Illustration-fix_only",
+                "tileSize": 256,
+                "gpuId": "0",
+                "skipAlpha": true
+            }
+        }
+    ]
+}
